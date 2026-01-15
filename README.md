@@ -1,7 +1,7 @@
 # SecureComm
 ### An End-to-End Encrypted Communication System
 
-This document describes the security architecture, design principles, and threat model of SecureComm.
+This document describes the security architecture, usage, and threat model of SecureComm.
 
 ## Abstract
 
@@ -58,20 +58,14 @@ Key material is ephemeral wherever possible, and plaintext is never written to p
 - No server-side encryption key storage.
 - Minimal metadata retention limited to operational requirements.
 
-## Limitations
+## Installation
 
-SecureComm does not mitigate:
+### Local Development Setup
 
-- Endpoint compromise.
-- User-controlled key leakage.
-- Traffic analysis based on timing or volume alone.
+To run SecureComm locally:
 
-These limitations are explicitly acknowledged.
-
-## Conclusion
-
-SecureComm demonstrates a practical implementation of end-to-end encrypted communication using a zero-knowledge server architecture. The system minimizes trust assumptions and enforces confidentiality by design rather than policy.
-
-## License
-
-Licensed under the Apache 2.0 License.
+```bash
+git clone https://github.com/pangerlkr/SecureComm.git
+cd SecureComm
+npm install
+npm run dev
