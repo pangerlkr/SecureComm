@@ -3,22 +3,22 @@
 
 SecureComm is a **chat room–style communication platform** that enables users to exchange messages in real time, protected by strong end-to-end encryption.
 
-It behaves like a traditional chat room in usage, but unlike conventional platforms, **the server cannot read, store, or decrypt messages**. All encryption and decryption occur exclusively on client devices.
+It behaves like a traditional chat room in everyday use. The crucial difference is architectural: **the server cannot read, store, or decrypt messages**. All encryption and decryption occur exclusively on client devices.
 
 ---
 
 ## What SecureComm Is
 
-SecureComm works like a live chat room:
+SecureComm functions like a live chat room:
 
 - Users join a shared communication space
 - Messages appear instantly to all participants
 - Conversations are real-time and interactive
 
-The difference lies beneath the surface.
+The distinction lies beneath the surface.
 
 > Messages are encrypted on your device before transmission and decrypted only on the recipient’s device.  
-> The server merely relays encrypted data and remains blind to message contents.
+> The server merely relays encrypted payloads and remains blind to message contents.
 
 ---
 
@@ -26,13 +26,13 @@ The difference lies beneath the surface.
 
 SecureComm is a secure communication platform designed for confidential, real-time messaging in a chat room environment. It employs an end-to-end encryption model to preserve message confidentiality, integrity, and authenticity against both external adversaries and the service operator itself.
 
-The system follows a **zero-knowledge architecture**, where cryptographic keys are generated, stored, and used exclusively on client devices. Servers act only as untrusted relays and session coordinators.
+The system follows a **zero-knowledge architecture**, where cryptographic keys are generated, stored, and used exclusively on client devices. Servers act solely as untrusted relays and session coordinators.
 
 ---
 
 ## Problem Statement
 
-Many modern chat platforms retain access to user data through server-side key storage, message logging, or excessive metadata retention. These practices introduce unnecessary trust assumptions and expand the attack surface.
+Many modern chat platforms retain access to user data through server-side key storage, message logging, or excessive metadata retention. These designs introduce unnecessary trust assumptions and significantly expand the attack surface.
 
 SecureComm eliminates these risks by enforcing encryption at the client layer and treating the server as an untrusted intermediary.
 
@@ -104,12 +104,75 @@ The server knows **that** messages are sent, not **what** they contain.
 
 ## Installation
 
-### Local Development Setup
+SecureComm supports multiple installation methods depending on your use case.
 
-To run SecureComm locally:
+---
+
+### Method 1: Local Development (Recommended)
+
+Best suited for contributors, testers, and developers.
 
 ```bash
 git clone https://github.com/pangerlkr/SecureComm.git
 cd SecureComm
 npm install
 npm run dev
+```   
+The application starts in development mode with hot reloading enabled.
+
+---
+
+### Method 2: Production Build (Node.js)
+
+Recommended for deploying SecureComm on a server or VPS.
+
+```bash
+git clone https://github.com/pangerlkr/SecureComm.git
+cd SecureComm
+npm install
+npm run build
+npm start
+```
+This runs SecureComm in production mode with optimized assets.
+
+---
+
+### Method 3: Docker Deployment
+
+Suitable for containerized and reproducible environments.
+
+```bash
+git clone https://github.com/pangerlkr/SecureComm.git
+cd SecureComm
+docker build -t securecomm .
+docker run -p 3000:3000 securecomm
+```
+This method isolates dependencies and simplifies deployment.
+
+---
+### Method 4: Using Docker Compose
+
+Recommended for structured deployments and future scalability.
+
+```bash
+git clone https://github.com/pangerlkr/SecureComm.git
+cd SecureComm
+docker-compose up --build
+```
+Ensure Docker and Docker Compose are installed before using this method.
+
+---
+### Method 5: Environment-Based Deployment (.env)
+
+For environments requiring configurable runtime variables.
+
+```bash
+git clone https://github.com/pangerlkr/SecureComm.git
+cd SecureComm
+cp .env.example .env
+npm install
+npm run build
+npm start
+```
+Update .env with appropriate configuration values before starting the application.
+
