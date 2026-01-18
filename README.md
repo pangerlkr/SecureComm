@@ -176,3 +176,15 @@ npm start
 ```
 Update .env with appropriate configuration values before starting the application.
 
+---
+
+## Conclusion
+
+SecureComm is built on a simple but uncompromising premise: private communication should remain private by design, not by policy.
+
+By combining a familiar chat room experience with a zero-knowledge, end-to-end encrypted architecture, SecureComm eliminates unnecessary trust in servers and service operators. Messages are protected at the source, remain encrypted in transit, and are decrypted only by their intended recipients.
+
+This project prioritizes clarity, restraint, and correctness over convenience shortcuts. It is intended for users and developers who value transparency, verifiable security assumptions, and a clear separation between usability and trust.
+
+SecureComm does not promise anonymity, perfection, or invulnerability. It promises something more honest: a communication system that minimizes exposure, reduces attack surface, and refuses to see what it does not need to know.
+
