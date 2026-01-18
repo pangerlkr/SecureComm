@@ -1,4 +1,4 @@
-# SecureComm
+# SecureComm ChatRoom
 ### An End-to-End Encrypted Communication System
 
 This document describes the security architecture, usage, and threat model of SecureComm.
