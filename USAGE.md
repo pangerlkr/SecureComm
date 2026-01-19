@@ -78,3 +78,6 @@ Users are responsible for complying with applicable laws and regulations in thei
 SecureComm is provided as an open-source project.
 
 For issues, bugs, or feature requests, refer to the GitHub repository issue tracker.
+
+send support mail/ context here: contact@pangerlkr.link
+
