@@ -79,4 +79,4 @@ SecureComm does not attempt to:
 
 Cryptographic choices may evolve over time as standards and best practices change.
 
-Changes to cryptographic design will be documented and versioned.
+Changes to cryptographic design will be documented and versioned
