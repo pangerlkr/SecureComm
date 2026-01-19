@@ -23,3 +23,4 @@ In no event shall the authors or contributors be held liable for any claim, dama
 Users are solely responsible for evaluating the suitability of this software for their intended use case, including compliance with legal, regulatory, and organizational requirements.
 
 By using SecureComm, you acknowledge and accept these limitations.
+# You are responsible for the consequences that may/ may not arise through its' usage
