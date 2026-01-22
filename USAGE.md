@@ -1,4 +1,4 @@
-# SecureComm Usage Guide
+# SecureComm Usage Guide St
 
 This document explains how to use SecureComm as an end user, particularly via the publicly hosted instance.
 
