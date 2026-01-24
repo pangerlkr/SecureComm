@@ -5,6 +5,10 @@ SecureComm is a **chat room–style communication platform** that enables users 
 
 It behaves like a traditional chat room in everyday use. The crucial difference is architectural: **the server cannot read, store, or decrypt messages**. All encryption and decryption occur exclusively on client devices.
 
+## GitAds Sponsored
+[![Sponsored by GitAds](https://gitads.dev/v1/ad-serve?source=pangerlkr/securecomm@github)](https://gitads.dev/v1/ad-track?source=pangerlkr/securecomm@github)
+
+
 ---
 
 ## What SecureComm Is
