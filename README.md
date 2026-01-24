@@ -178,6 +178,8 @@ Update .env with appropriate configuration values before starting the applicatio
 
 ---
 
+<!-- GitAds-Verify: RGLQ72M3SI8EERNQ144EAXZAS6TVSE1X -->
+
 ## Conclusion
 
 SecureComm is built on a simple but uncompromising premise: private communication should remain private by design, not by policy.
