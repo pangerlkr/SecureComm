@@ -5,13 +5,33 @@ SecureComm is a **chat room–style communication platform** that enables users 
 
 It behaves like a traditional chat room in everyday use. The crucial difference is architectural: **the server cannot read, store, or decrypt messages**. All encryption and decryption occur exclusively on client devices.
 
-## GitAds Sponsored
-This Project is being sponsored by GitAds
-[![Sponsored by GitAds](https://gitads.dev/v1/ad-serve?source=pangerlkr/securecomm@github)](https://gitads.dev/v1/ad-track?source=pangerlkr/securecomm@github)
+---
+## Sponsored by GitAds
+
+<p align="center">
+  <a href="https://docs.gitads.dev/">
+    <img
+      src="https://gitads.dev/assets/images/sponsor/camos/camo-3.png"
+      alt="Sponsored by GitAds"
+      width="360"
+    />
+  </a>
+</p>
+
+<p align="center">
+  <em>
+    SecureComm advances under the patronage of
+    <strong>
+      <a href="https://docs.gitads.dev/docs/getting-started/publishers">
+        GitAds
+      </a>
+    </strong>,
+    ensuring that privacy-first communication remains open, secure, and free.
+  </em>
+</p>
 
 
 ---
-
 ## What SecureComm Is
 
 SecureComm functions like a live chat room:
