@@ -5,26 +5,10 @@ import cors from 'cors';
 
 const app = express();
 const server = createServer(app);
-
-const allowedOrigins = [
-  "http://localhost:5173",
-  "https://localhost:5173",
-  "http://localhost:5174",
-  "https://securecomm.netlify.app",
-  process.env.FRONTEND_URL
-].filter(Boolean);
-
 const io = new Server(server, {
   cors: {
-    origin: (origin, callback) => {
-      if (!origin || allowedOrigins.includes(origin) || origin.includes('render.com')) {
-        callback(null, true);
-      } else {
-        callback(new Error('Not allowed by CORS'));
-      }
-    },
-    methods: ["GET", "POST"],
-    credentials: true
+    origin: ["http://localhost:5173", "https://securecomm.netlify.app"],
+    methods: ["GET", "POST"]
   }
 });
 
