@@ -9,8 +9,7 @@
     "lint": "eslint .",
     "preview": "vite preview",
     "server": "node server/index.js",
-    "client": "vite",
-    "start": "node server/index.js"
+    "client": "vite"
   },
   "dependencies": {
     "lucide-react": "^0.344.0",
