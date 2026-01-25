@@ -202,7 +202,7 @@ export default function ChatRoom({ roomId, onLeave }: ChatRoomProps) {
   const openServerStatus = () => {
     const serverUrl = window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1' 
       ? 'http://localhost:3001' 
-      : 'https://panger-chat-server.onrender.com';
+      : 'https://securecomm-rzc6.onrender.com/';
     window.open(serverUrl, '_blank');
   };
 
