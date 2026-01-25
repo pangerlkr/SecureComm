@@ -50,7 +50,7 @@ export function useSocket({
       }
 
       // In production, use the deployed server
-      return 'https://securecomm-rzc6.onrender.com/';
+      return 'https://panger-chat-server.onrender.com';
     };
 
     const serverUrl = getServerUrl();
