@@ -1,0 +1,37 @@
+services:
+  # Backend Web Service
+  - type: web
+    name: securecomm-backend
+    env: node
+    region: oregon
+    plan: free
+    buildCommand: npm install
+    startCommand: npm run start
+    healthCheckPath: /health
+    envVars:
+      - key: NODE_ENV
+        value: production
+      - key: PORT
+        value: 3001
+      - key: FRONTEND_URL
+        sync: false
+
+  # Frontend Static Site
+  - type: web
+    name: securecomm-frontend
+    env: static
+    region: oregon
+    plan: free
+    buildCommand: npm install && npm run build
+    staticPublishPath: ./dist
+    routes:
+      - type: rewrite
+        source: /*
+        destination: /index.html
+    envVars:
+      - key: VITE_SERVER_URL
+        sync: false
+      - key: VITE_SUPABASE_URL
+        value: https://0ec90b57d6e95fcbda19832f.supabase.co
+      - key: VITE_SUPABASE_ANON_KEY
+        sync: false

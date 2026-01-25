@@ -38,11 +38,17 @@ export function useSocket({
 
     // Determine server URL based on environment
     const getServerUrl = () => {
+      // Check for environment variable first
+      const envServerUrl = import.meta.env.VITE_SERVER_URL;
+      if (envServerUrl) {
+        return envServerUrl;
+      }
+
       // In development, use localhost
       if (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1') {
         return 'http://localhost:3001';
       }
-      
+
       // In production, use the deployed server
       return 'https://panger-chat-server.onrender.com';
     };
