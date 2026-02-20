@@ -39,7 +39,7 @@ jobs:
         uses: actions/setup-java@v4
         with:
           distribution: "temurin"
-          java-version: "17"
+          java-version: "21"
 
       - name: Setup Android SDK
         uses: android-actions/setup-android@v3
@@ -96,7 +96,6 @@ jobs:
             CODE_SIGN_IDENTITY="" \
             CODE_SIGNING_REQUIRED=NO \
             CODE_SIGNING_ALLOWED=NO \
-            -resolvePackageDependencies \
             build
 
       - name: Upload iOS app
