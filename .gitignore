@@ -23,3 +23,20 @@ dist-ssr
 *.sln
 *.sw?
 .env
+
+# Capacitor / Android
+android/.gradle
+android/app/build
+android/build
+android/.idea
+android/local.properties
+
+# Capacitor / iOS
+ios/App/Pods
+ios/App/App.xcworkspace/xcuserdata
+ios/.xcode.env.local
+
+# Capacitor build artifacts
+*.apk
+*.ipa
+*.aab
