@@ -8,6 +8,7 @@ import {
 import { Message, Participant, CallState } from '../types';
 import { EncryptionManager } from '../utils/encryption';
 import { useSupabaseChat } from '../hooks/useSupabaseChat';
+import { useWebRTC } from '../hooks/useWebRTC';
 
 interface ChatRoomProps {
   roomId: string;
@@ -42,6 +43,47 @@ export default function ChatRoom({ roomId, onLeave }: ChatRoomProps) {
   } = useSupabaseChat({
     roomId,
     userName: isNameSet ? userName : ''
+  });
+
+  const {
+    localStream,
+    remoteStream,
+    isCallActive: webrtcCallActive,
+    currentCallUser,
+    currentCallIsVideo,
+    startCall,
+    acceptCall,
+    rejectCall,
+    endCall,
+    toggleAudio,
+    toggleVideo,
+    localVideoRef,
+    remoteVideoRef
+  } = useWebRTC({
+    roomId,
+    userName: isNameSet ? userName : '',
+    enabled: isNameSet,
+    onIncomingCall: (data) => {
+      setIncomingCall({
+        from: data.from,
+        isVideo: data.isVideo,
+        callerId: data.from
+      });
+    },
+    onCallAccepted: () => {
+      setCallState(prev => ({ ...prev, isActive: true }));
+      setIncomingCall(null);
+    },
+    onCallRejected: () => {
+      setCallState({ isActive: false, isVideo: false, isIncoming: false });
+      setIncomingCall(null);
+    },
+    onCallEnded: () => {
+      setCallState({ isActive: false, isVideo: false, isIncoming: false });
+      setIncomingCall(null);
+      setIsMuted(false);
+      setIsVideoOff(false);
+    }
   });
 
   useEffect(() => {
@@ -106,22 +148,50 @@ export default function ChatRoom({ roomId, onLeave }: ChatRoomProps) {
     }
   };
 
-  const handleStartCall = (isVideo: boolean) => {
-    console.log('Call feature not yet implemented with Supabase backend');
+  const handleStartCall = async (isVideo: boolean) => {
+    if (participants.length < 2) {
+      alert('Waiting for another participant to join...');
+      return;
+    }
+
+    const otherParticipant = participants.find(p => p.name !== userName);
+    if (otherParticipant) {
+      setCallState({ isActive: false, isVideo, isIncoming: false });
+      await startCall(otherParticipant.name, isVideo);
+    }
   };
 
-  const handleAcceptCall = () => {
-    console.log('Call feature not yet implemented with Supabase backend');
+  const handleAcceptCall = async () => {
+    if (incomingCall) {
+      await acceptCall(incomingCall.from, incomingCall.isVideo);
+      setCallState({ isActive: true, isVideo: incomingCall.isVideo, isIncoming: true });
+    }
   };
 
-  const handleRejectCall = () => {
-    setIncomingCall(null);
+  const handleRejectCall = async () => {
+    if (incomingCall) {
+      await rejectCall(incomingCall.from);
+      setIncomingCall(null);
+    }
   };
 
-  const handleEndCall = () => {
+  const handleEndCall = async () => {
+    await endCall();
     setCallState({ isActive: false, isVideo: false, isIncoming: false });
     setIsMuted(false);
     setIsVideoOff(false);
+  };
+
+  const handleToggleMute = () => {
+    const newMutedState = !isMuted;
+    setIsMuted(newMutedState);
+    toggleAudio(!newMutedState);
+  };
+
+  const handleToggleVideo = () => {
+    const newVideoState = !isVideoOff;
+    setIsVideoOff(newVideoState);
+    toggleVideo(!newVideoState);
   };
 
   const copyRoomLink = () => {
@@ -332,7 +402,7 @@ export default function ChatRoom({ roomId, onLeave }: ChatRoomProps) {
             </div>
             <div className="flex items-center space-x-2">
               <button
-                onClick={() => setIsMuted(!isMuted)}
+                onClick={handleToggleMute}
                 className={`p-2 rounded-full transition-colors ${
                   isMuted ? 'bg-red-500 text-white' : 'bg-slate-700 text-slate-300 hover:bg-slate-600'
                 }`}
@@ -341,7 +411,7 @@ export default function ChatRoom({ roomId, onLeave }: ChatRoomProps) {
               </button>
               {callState.isVideo && (
                 <button
-                  onClick={() => setIsVideoOff(!isVideoOff)}
+                  onClick={handleToggleVideo}
                   className={`p-2 rounded-full transition-colors ${
                     isVideoOff ? 'bg-red-500 text-white' : 'bg-slate-700 text-slate-300 hover:bg-slate-600'
                   }`}
@@ -357,6 +427,25 @@ export default function ChatRoom({ roomId, onLeave }: ChatRoomProps) {
               </button>
             </div>
           </div>
+        </div>
+      )}
+
+      {/* Video Call Area */}
+      {(callState.isActive || webrtcCallActive) && callState.isVideo && (
+        <div className="relative h-96 bg-slate-900">
+          <video
+            ref={remoteVideoRef}
+            autoPlay
+            playsInline
+            className="w-full h-full object-cover"
+          />
+          <video
+            ref={localVideoRef}
+            autoPlay
+            playsInline
+            muted
+            className="absolute bottom-4 right-4 w-48 h-36 object-cover rounded-lg border-2 border-slate-600 shadow-lg"
+          />
         </div>
       )}
 
