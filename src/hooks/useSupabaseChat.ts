@@ -28,6 +28,7 @@ export function useSupabaseChat({ roomId, userName, isHost = false, hostSessionI
   const loadedMessageIdsRef = useRef<Set<string>>(new Set());
   const typingTimeoutRef = useRef<NodeJS.Timeout | null>(null);
   const heartbeatIntervalRef = useRef<NodeJS.Timeout | null>(null);
+  const participantPollRef = useRef<NodeJS.Timeout | null>(null);
   const mountedRef = useRef(false);
 
   const generateSessionId = () => Math.random().toString(36).substring(2) + Date.now().toString(36);
@@ -295,6 +296,10 @@ export function useSupabaseChat({ roomId, userName, isHost = false, hostSessionI
           }
         }, 20000);
 
+        participantPollRef.current = setInterval(async () => {
+          if (mountedRef.current) await loadParticipants();
+        }, 30000);
+
       } catch (err) {
         console.error('Error initializing room:', err);
         if (mountedRef.current) {
@@ -311,6 +316,7 @@ export function useSupabaseChat({ roomId, userName, isHost = false, hostSessionI
       window.removeEventListener('beforeunload', markOfflineSync);
       window.removeEventListener('pagehide', markOfflineSync);
       if (heartbeatIntervalRef.current) clearInterval(heartbeatIntervalRef.current);
+      if (participantPollRef.current) clearInterval(participantPollRef.current);
       if (typingTimeoutRef.current) clearTimeout(typingTimeoutRef.current);
 
       const cleanup = async () => {
