@@ -64,6 +64,16 @@ export function useSupabaseChat({ roomId, userName, isHost = false, hostSessionI
     const sessionId = generateSessionId();
     participantSessionIdRef.current = sessionId;
 
+    const markOfflineSync = () => {
+      if (!participantIdRef.current) return;
+      const url = `${import.meta.env.VITE_SUPABASE_URL}/rest/v1/participants?id=eq.${participantIdRef.current}`;
+      const body = JSON.stringify({ is_online: false, last_seen: new Date().toISOString() });
+      navigator.sendBeacon(url + '&apikey=' + import.meta.env.VITE_SUPABASE_ANON_KEY, new Blob([body], { type: 'application/json' }));
+    };
+
+    window.addEventListener('beforeunload', markOfflineSync);
+    window.addEventListener('pagehide', markOfflineSync);
+
     const initializeRoom = async () => {
       try {
         setJoinStatus('checking');
@@ -133,6 +143,14 @@ export function useSupabaseChat({ roomId, userName, isHost = false, hostSessionI
         if (existingParticipant) {
           participantIdRef.current = existingParticipant.id;
 
+          const { data: prevState } = await supabase
+            .from('participants')
+            .select('is_online')
+            .eq('id', existingParticipant.id)
+            .maybeSingle();
+
+          const wasOffline = prevState && !prevState.is_online;
+
           await supabase
             .from('participants')
             .update({
@@ -141,6 +159,23 @@ export function useSupabaseChat({ roomId, userName, isHost = false, hostSessionI
               session_id: sessionId
             })
             .eq('id', existingParticipant.id);
+
+          if (wasOffline) {
+            await supabase.from('messages').insert({
+              room_id: roomId,
+              sender: 'System',
+              content: `${userName} rejoined the room`,
+              type: 'system',
+              encrypted: false
+            });
+
+            if (isHost) {
+              await supabase
+                .from('rooms')
+                .update({ host_name: userName })
+                .eq('id', roomId);
+            }
+          }
         } else {
           const { data: newParticipant, error: insertError } = await supabase
             .from('participants')
@@ -243,6 +278,15 @@ export function useSupabaseChat({ roomId, userName, isHost = false, hostSessionI
             }
           )
           .on('postgres_changes',
+            { event: 'UPDATE', schema: 'public', table: 'rooms', filter: `id=eq.${roomId}` },
+            (payload) => {
+              if (!mountedRef.current) return;
+              const updated = payload.new as { host_name: string; is_locked: boolean };
+              if (updated.host_name !== undefined) setRoomHostName(updated.host_name);
+              if (updated.is_locked !== undefined) setRoomIsLocked(updated.is_locked);
+            }
+          )
+          .on('postgres_changes',
             { event: 'INSERT', schema: 'public', table: 'banned_participants', filter: `room_id=eq.${roomId}` },
             (payload) => {
               if (!mountedRef.current) return;
@@ -304,6 +348,9 @@ export function useSupabaseChat({ roomId, userName, isHost = false, hostSessionI
     return () => {
       mountedRef.current = false;
 
+      window.removeEventListener('beforeunload', markOfflineSync);
+      window.removeEventListener('pagehide', markOfflineSync);
+
       if (heartbeatIntervalRef.current) clearInterval(heartbeatIntervalRef.current);
       if (typingTimeoutRef.current) clearTimeout(typingTimeoutRef.current);
 
@@ -313,6 +360,13 @@ export function useSupabaseChat({ roomId, userName, isHost = false, hostSessionI
             .from('participants')
             .update({ is_online: false })
             .eq('id', participantIdRef.current);
+
+          if (isHost) {
+            await supabase.rpc('transfer_host_on_leave', {
+              p_room_id: roomId,
+              p_leaving_user: userName
+            });
+          }
 
           await supabase
             .from('messages')

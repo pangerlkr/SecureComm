@@ -72,6 +72,8 @@ export default function ChatRoom({ roomId, isHost = false, hostSessionId = '', o
     hostSessionId
   });
 
+  const effectiveIsHost = isNameSet && roomHostName !== '' && roomHostName === userName;
+
   const {
     localStream: _localStream,
     remoteStream: _remoteStream,
@@ -124,10 +126,10 @@ export default function ChatRoom({ roomId, isHost = false, hostSessionId = '', o
   }, [joinStatus]);
 
   useEffect(() => {
-    if (isNameSet && roomIsLocked && !isHost && !pincodeVerified) {
+    if (isNameSet && roomIsLocked && !effectiveIsHost && !pincodeVerified) {
       setShowPincodeEntry(true);
     }
-  }, [isNameSet, roomIsLocked, isHost, pincodeVerified]);
+  }, [isNameSet, roomIsLocked, effectiveIsHost, pincodeVerified]);
 
   useEffect(() => {
     if (showRoomSettings) {
@@ -454,7 +456,7 @@ export default function ChatRoom({ roomId, isHost = false, hostSessionId = '', o
       )}
 
       {/* Room Settings Modal (Host only) */}
-      {showRoomSettings && isHost && (
+      {showRoomSettings && effectiveIsHost && (
         <div className="fixed inset-0 bg-black/70 backdrop-blur-sm flex items-center justify-center z-50">
           <div className="bg-slate-800 rounded-2xl p-8 border border-slate-700 max-w-md w-full mx-4">
             <div className="flex items-center justify-between mb-6">
@@ -581,7 +583,7 @@ export default function ChatRoom({ roomId, isHost = false, hostSessionId = '', o
                   <span>Locked</span>
                 </div>
               )}
-              {isHost && (
+              {effectiveIsHost && (
                 <div className="flex items-center space-x-1 bg-amber-500/20 text-amber-400 text-xs px-2 py-0.5 rounded-full border border-amber-500/30">
                   <Crown className="w-3 h-3" />
                   <span>Host</span>
@@ -600,7 +602,7 @@ export default function ChatRoom({ roomId, isHost = false, hostSessionId = '', o
               <span className="text-sm">{linkCopied ? 'Copied!' : 'Share Link'}</span>
             </button>
 
-            {isHost && (
+            {effectiveIsHost && (
               <button
                 onClick={() => setShowRoomSettings(true)}
                 className="flex items-center space-x-1 px-3 py-2 bg-amber-500/20 hover:bg-amber-500/30 text-amber-400 rounded-lg transition-colors"
@@ -903,7 +905,7 @@ export default function ChatRoom({ roomId, isHost = false, hostSessionId = '', o
                   </div>
                   <div className="text-xs text-green-400">Active now</div>
                 </div>
-                {isHost && participant.name !== userName && (
+                {effectiveIsHost && participant.name !== userName && (
                   <div className="flex space-x-1 flex-shrink-0">
                     <button
                       onClick={() => setConfirmAction({ type: 'kick', participantName: participant.name })}
@@ -925,7 +927,7 @@ export default function ChatRoom({ roomId, isHost = false, hostSessionId = '', o
             ))}
           </div>
 
-          {isHost && (
+          {effectiveIsHost && (
             <div className="mt-6 pt-4 border-t border-slate-700">
               <p className="text-xs text-slate-500 mb-3 uppercase tracking-wider">Host Controls</p>
               <button
