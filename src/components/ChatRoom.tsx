@@ -1,13 +1,13 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { 
-  Send, Phone, Video, Paperclip, Shield, Users, 
+import {
+  Send, Phone, Video, Paperclip, Shield, Users,
   Settings, MoreVertical, Mic, MicOff, VideoOff,
   Download, X, Copy, CheckCircle2, LogOut, Wifi, WifiOff,
   AlertTriangle, RefreshCw, MessageSquare, ExternalLink
 } from 'lucide-react';
 import { Message, Participant, CallState } from '../types';
 import { EncryptionManager } from '../utils/encryption';
-import { useSocket } from '../hooks/useSocket';
+import { useSupabaseChat } from '../hooks/useSupabaseChat';
 
 interface ChatRoomProps {
   roomId: string;
@@ -15,8 +15,6 @@ interface ChatRoomProps {
 }
 
 export default function ChatRoom({ roomId, onLeave }: ChatRoomProps) {
-  const [messages, setMessages] = useState<Message[]>([]);
-  const [participants, setParticipants] = useState<Participant[]>([]);
   const [newMessage, setNewMessage] = useState('');
   const [userName, setUserName] = useState('');
   const [isNameSet, setIsNameSet] = useState(false);
@@ -25,9 +23,8 @@ export default function ChatRoom({ roomId, onLeave }: ChatRoomProps) {
   const [isVideoOff, setIsVideoOff] = useState(false);
   const [showParticipants, setShowParticipants] = useState(false);
   const [linkCopied, setLinkCopied] = useState(false);
-  const [typingUsers, setTypingUsers] = useState<string[]>([]);
   const [incomingCall, setIncomingCall] = useState<{ from: string; isVideo: boolean; callerId: string } | null>(null);
-  
+
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const typingTimeoutRef = useRef<NodeJS.Timeout | null>(null);
@@ -36,52 +33,15 @@ export default function ChatRoom({ roomId, onLeave }: ChatRoomProps) {
   const {
     isConnected,
     connectionError,
-    sendMessage,
+    messages,
+    participants,
+    typingUsers,
+    sendMessage: sendSupabaseMessage,
     startTyping,
-    stopTyping,
-    startCall: socketStartCall,
-    acceptCall,
-    rejectCall,
-    endCall: socketEndCall
-  } = useSocket({
+    stopTyping
+  } = useSupabaseChat({
     roomId,
-    userName: isNameSet ? userName : '', // Only pass userName when it's actually set
-    onNewMessage: (message) => {
-      setMessages(prev => {
-        // Avoid duplicate messages
-        if (prev.some(m => m.id === message.id)) return prev;
-        return [...prev, message];
-      });
-    },
-    onParticipantsUpdate: (newParticipants) => {
-      setParticipants(newParticipants);
-    },
-    onUserTyping: ({ userId, userName: typingUserName, isTyping }) => {
-      setTypingUsers(prev => {
-        if (isTyping) {
-          return prev.includes(typingUserName) ? prev : [...prev, typingUserName];
-        } else {
-          return prev.filter(name => name !== typingUserName);
-        }
-      });
-    },
-    onIncomingCall: (callData) => {
-      setIncomingCall(callData);
-    },
-    onCallAccepted: () => {
-      setCallState(prev => ({ ...prev, isActive: true }));
-      setIncomingCall(null);
-    },
-    onCallRejected: () => {
-      setCallState({ isActive: false, isVideo: false, isIncoming: false });
-      setIncomingCall(null);
-    },
-    onCallEnded: () => {
-      setCallState({ isActive: false, isVideo: false, isIncoming: false });
-      setIncomingCall(null);
-      setIsMuted(false);
-      setIsVideoOff(false);
-    }
+    userName: isNameSet ? userName : ''
   });
 
   useEffect(() => {
@@ -102,8 +62,8 @@ export default function ChatRoom({ roomId, onLeave }: ChatRoomProps) {
         type: 'text',
         encrypted: true
       };
-      
-      sendMessage(message);
+
+      await sendSupabaseMessage(message);
       setNewMessage('');
       stopTyping();
     }
@@ -130,7 +90,7 @@ export default function ChatRoom({ roomId, onLeave }: ChatRoomProps) {
     }
   };
 
-  const handleFileUpload = (event: React.ChangeEvent<HTMLInputElement>) => {
+  const handleFileUpload = async (event: React.ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0];
     if (file && isNameSet && isConnected) {
       const message: Omit<Message, 'id' | 'timestamp'> = {
@@ -141,34 +101,24 @@ export default function ChatRoom({ roomId, onLeave }: ChatRoomProps) {
         fileSize: file.size,
         encrypted: true
       };
-      
-      sendMessage(message);
+
+      await sendSupabaseMessage(message);
     }
   };
 
   const handleStartCall = (isVideo: boolean) => {
-    if (isConnected) {
-      setCallState({ isActive: false, isVideo, isIncoming: false });
-      socketStartCall(isVideo);
-    }
+    console.log('Call feature not yet implemented with Supabase backend');
   };
 
   const handleAcceptCall = () => {
-    if (incomingCall) {
-      acceptCall(incomingCall.callerId);
-      setCallState({ isActive: true, isVideo: incomingCall.isVideo, isIncoming: true });
-    }
+    console.log('Call feature not yet implemented with Supabase backend');
   };
 
   const handleRejectCall = () => {
-    if (incomingCall) {
-      rejectCall(incomingCall.callerId);
-      setIncomingCall(null);
-    }
+    setIncomingCall(null);
   };
 
   const handleEndCall = () => {
-    socketEndCall();
     setCallState({ isActive: false, isVideo: false, isIncoming: false });
     setIsMuted(false);
     setIsVideoOff(false);
@@ -200,10 +150,7 @@ export default function ChatRoom({ roomId, onLeave }: ChatRoomProps) {
   };
 
   const openServerStatus = () => {
-    const serverUrl = window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1' 
-      ? 'http://localhost:3001' 
-      : 'https://panger-chat-server.onrender.com';
-    window.open(serverUrl, '_blank');
+    window.open('https://supabase.com/dashboard', '_blank');
   };
 
   if (!isNameSet) {
