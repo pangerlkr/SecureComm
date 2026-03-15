@@ -49,6 +49,26 @@ export default function ChatRoom({ roomId, isHost = false, hostSessionId = '', o
   const typingTimeoutRef = useRef<NodeJS.Timeout | null>(null);
   const encryptionManager = EncryptionManager.getInstance();
 
+  useEffect(() => {
+    const prevent = (e: MouseEvent) => e.preventDefault();
+    const preventKeys = (e: KeyboardEvent) => {
+      if (
+        e.key === 'PrintScreen' ||
+        (e.metaKey && e.shiftKey && (e.key === '3' || e.key === '4' || e.key === '5' || e.key === 's')) ||
+        (e.ctrlKey && e.key === 'p') ||
+        (e.metaKey && e.key === 'p')
+      ) {
+        e.preventDefault();
+      }
+    };
+    document.addEventListener('contextmenu', prevent);
+    document.addEventListener('keydown', preventKeys);
+    return () => {
+      document.removeEventListener('contextmenu', prevent);
+      document.removeEventListener('keydown', preventKeys);
+    };
+  }, []);
+
   const {
     isConnected,
     connectionError,
@@ -409,7 +429,7 @@ export default function ChatRoom({ roomId, isHost = false, hostSessionId = '', o
   }
 
   return (
-    <div className="min-h-screen bg-slate-900 flex flex-col">
+    <div className="min-h-screen bg-slate-900 flex flex-col secure-room">
       {/* Pincode Modal */}
       {showPincodeEntry && (
         <div className="fixed inset-0 bg-black/70 backdrop-blur-sm flex items-center justify-center z-50">
