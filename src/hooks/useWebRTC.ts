@@ -25,6 +25,9 @@ export function useWebRTC({
   const [isCallActive, setIsCallActive] = useState(false);
   const [currentCallUser, setCurrentCallUser] = useState<string | null>(null);
   const [currentCallIsVideo, setCurrentCallIsVideo] = useState(false);
+  const [remoteCameraOff, setRemoteCameraOff] = useState(false);
+  const [isOnHold, setIsOnHold] = useState(false);
+  const [remoteOnHold, setRemoteOnHold] = useState(false);
 
   const webrtcManagerRef = useRef<WebRTCManager | null>(null);
   const currentCallUserRef = useRef<string | null>(null);
@@ -38,6 +41,9 @@ export function useWebRTC({
     setLocalStream(null);
     setRemoteStream(null);
     setCurrentCallIsVideo(false);
+    setRemoteCameraOff(false);
+    setIsOnHold(false);
+    setRemoteOnHold(false);
     if (localVideoRef.current) localVideoRef.current.srcObject = null;
     if (remoteVideoRef.current) remoteVideoRef.current.srcObject = null;
   };
@@ -68,6 +74,18 @@ export function useWebRTC({
           }
           break;
         }
+        case 'camera-off':
+          setRemoteCameraOff(true);
+          break;
+        case 'camera-on':
+          setRemoteCameraOff(false);
+          break;
+        case 'call-hold':
+          setRemoteOnHold(true);
+          break;
+        case 'call-unhold':
+          setRemoteOnHold(false);
+          break;
         case 'call-reject':
           resetCallState();
           onCallRejected?.();
@@ -144,18 +162,33 @@ export function useWebRTC({
   const toggleAudio = (en: boolean) => webrtcManagerRef.current?.toggleAudio(en);
   const toggleVideo = (en: boolean) => webrtcManagerRef.current?.toggleVideo(en);
 
+  const holdCall = async () => {
+    await webrtcManagerRef.current?.holdCall();
+    setIsOnHold(true);
+  };
+
+  const unholdCall = async () => {
+    await webrtcManagerRef.current?.unholdCall();
+    setIsOnHold(false);
+  };
+
   return {
     localStream,
     remoteStream,
     isCallActive,
     currentCallUser,
     currentCallIsVideo,
+    remoteCameraOff,
+    isOnHold,
+    remoteOnHold,
     startCall,
     acceptCall,
     rejectCall,
     endCall,
     toggleAudio,
     toggleVideo,
+    holdCall,
+    unholdCall,
     localVideoRef,
     remoteVideoRef
   };

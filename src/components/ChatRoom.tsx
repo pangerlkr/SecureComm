@@ -1,10 +1,11 @@
 import React, { useState, useEffect, useRef } from 'react';
 import {
   Send, Phone, Video, Paperclip, Shield, Users,
-  Mic, MicOff, VideoOff,
+  Mic, MicOff, VideoOff, PhoneOff, PhoneMissed,
   Download, X, Copy, CheckCircle2, LogOut, WifiOff,
   AlertTriangle, RefreshCw, MessageSquare, ExternalLink,
-  Lock, Unlock, UserX, Ban, Crown, KeyRound
+  Lock, Unlock, UserX, Ban, Crown, KeyRound, PauseCircle, PlayCircle,
+  Volume2, CameraOff, Camera, PhoneCall
 } from 'lucide-react';
 import { Message, Participant, CallState } from '../types';
 import { EncryptionManager } from '../utils/encryption';
@@ -25,6 +26,7 @@ export default function ChatRoom({ roomId, isHost = false, hostSessionId = '', o
   const [callState, setCallState] = useState<CallState>({ isActive: false, isVideo: false, isIncoming: false });
   const [isMuted, setIsMuted] = useState(false);
   const [isVideoOff, setIsVideoOff] = useState(false);
+  const [isSpeakerOn, setIsSpeakerOn] = useState(true);
   const [showParticipants, setShowParticipants] = useState(false);
   const [linkCopied, setLinkCopied] = useState(false);
   const [incomingCall, setIncomingCall] = useState<{ from: string; isVideo: boolean; callerId: string } | null>(null);
@@ -95,17 +97,20 @@ export default function ChatRoom({ roomId, isHost = false, hostSessionId = '', o
   const effectiveIsHost = isNameSet && roomHostName !== '' && roomHostName === userName;
 
   const {
-    localStream: _localStream,
-    remoteStream: _remoteStream,
     isCallActive: webrtcCallActive,
-    currentCallUser: _currentCallUser,
-    currentCallIsVideo: _currentCallIsVideo,
+    currentCallUser: callWithUser,
+    currentCallIsVideo: callIsVideo,
+    remoteCameraOff,
+    isOnHold,
+    remoteOnHold,
     startCall,
     acceptCall,
     rejectCall,
     endCall,
     toggleAudio,
     toggleVideo,
+    holdCall,
+    unholdCall,
     localVideoRef,
     remoteVideoRef
   } = useWebRTC({
@@ -256,6 +261,7 @@ export default function ChatRoom({ roomId, isHost = false, hostSessionId = '', o
     setCallState({ isActive: false, isVideo: false, isIncoming: false });
     setIsMuted(false);
     setIsVideoOff(false);
+    setIsSpeakerOn(true);
   };
 
   const handleToggleMute = () => {
@@ -268,6 +274,18 @@ export default function ChatRoom({ roomId, isHost = false, hostSessionId = '', o
     const newVideoState = !isVideoOff;
     setIsVideoOff(newVideoState);
     toggleVideo(!newVideoState);
+  };
+
+  const handleToggleHold = async () => {
+    if (isOnHold) {
+      await unholdCall();
+    } else {
+      await holdCall();
+    }
+  };
+
+  const handleToggleSpeaker = () => {
+    setIsSpeakerOn(prev => !prev);
   };
 
   const copyRoomLink = () => {
@@ -711,47 +729,165 @@ export default function ChatRoom({ roomId, isHost = false, hostSessionId = '', o
         </div>
       )}
 
-      {/* Call Interface */}
-      {callState.isActive && (
-        <div className="bg-slate-800 p-4 border-b border-slate-700">
-          <div className="flex items-center justify-between">
+      {/* Full-Screen Call Overlay */}
+      {(callState.isActive || webrtcCallActive) && (
+        <div className="fixed inset-0 z-40 flex flex-col" style={{ background: '#0a0a0f' }}>
+          {/* Remote Video / Audio Background */}
+          {callIsVideo ? (
+            <div className="absolute inset-0">
+              {remoteCameraOff || remoteOnHold ? (
+                <div className="w-full h-full flex flex-col items-center justify-center bg-gradient-to-br from-slate-800 to-slate-900">
+                  <div className="w-28 h-28 rounded-full bg-slate-700 flex items-center justify-center mb-4 border-4 border-slate-600">
+                    <span className="text-4xl font-bold text-slate-300">
+                      {(callWithUser ?? '?')[0].toUpperCase()}
+                    </span>
+                  </div>
+                  <p className="text-white text-lg font-medium">{callWithUser}</p>
+                  <p className="text-slate-400 text-sm mt-1">
+                    {remoteOnHold ? 'Call on hold' : 'Camera is off'}
+                  </p>
+                </div>
+              ) : (
+                <video
+                  ref={remoteVideoRef}
+                  autoPlay
+                  playsInline
+                  className="w-full h-full object-cover"
+                />
+              )}
+            </div>
+          ) : (
+            <div className="absolute inset-0 flex flex-col items-center justify-center bg-gradient-to-br from-slate-800 to-slate-900">
+              <video ref={remoteVideoRef} autoPlay playsInline className="hidden" />
+              <video ref={localVideoRef} autoPlay playsInline muted className="hidden" />
+              <div className="w-32 h-32 rounded-full bg-slate-700 flex items-center justify-center mb-6 border-4 border-slate-600 shadow-2xl">
+                <span className="text-5xl font-bold text-slate-300">
+                  {(callWithUser ?? '?')[0].toUpperCase()}
+                </span>
+              </div>
+              <p className="text-white text-2xl font-semibold mb-2">{callWithUser}</p>
+              <div className="flex items-center space-x-2 text-green-400">
+                <div className="w-2 h-2 bg-green-400 rounded-full animate-pulse"></div>
+                <span className="text-sm">
+                  {isOnHold ? 'On hold' : remoteOnHold ? 'Other side on hold' : 'Voice call in progress'}
+                </span>
+              </div>
+            </div>
+          )}
+
+          {/* Gradient overlay at bottom for controls */}
+          <div className="absolute inset-x-0 bottom-0 h-64 bg-gradient-to-t from-black/90 via-black/50 to-transparent pointer-events-none" />
+
+          {/* Top bar */}
+          <div className="relative z-10 flex items-center justify-between p-6 pt-safe">
             <div className="flex items-center space-x-3">
-              <div className="w-3 h-3 bg-green-400 rounded-full animate-pulse"></div>
-              <span className="text-white">
-                {callState.isVideo ? 'Video Call' : 'Voice Call'} in progress
+              <div className={`w-2.5 h-2.5 rounded-full ${isOnHold || remoteOnHold ? 'bg-yellow-400' : 'bg-green-400 animate-pulse'}`}></div>
+              <span className="text-white font-medium text-sm">
+                {isOnHold ? 'On Hold' : remoteOnHold ? `${callWithUser} put call on hold` : callIsVideo ? 'Video Call' : 'Voice Call'}
               </span>
             </div>
-            <div className="flex items-center space-x-2">
+            <div className="flex items-center space-x-1 bg-white/10 backdrop-blur-sm px-3 py-1.5 rounded-full border border-white/10">
+              <Shield className="w-3 h-3 text-green-400" />
+              <span className="text-xs text-slate-300">E2E Encrypted</span>
+            </div>
+          </div>
+
+          {/* Caller name (video call) */}
+          {callIsVideo && (
+            <div className="relative z-10 flex-1 flex items-start justify-center pt-4">
+              <div className="text-center">
+                <p className="text-white text-xl font-semibold drop-shadow-lg">{callWithUser}</p>
+                <p className="text-slate-300 text-sm mt-0.5 drop-shadow-lg">
+                  {isOnHold ? 'On hold' : remoteOnHold ? 'Other side on hold' : 'Video call'}
+                </p>
+              </div>
+            </div>
+          )}
+
+          {/* Local video PiP (video call only) */}
+          {callIsVideo && (
+            <div className="absolute top-24 right-5 z-20 w-32 h-44 rounded-2xl overflow-hidden border-2 border-white/20 shadow-2xl bg-slate-800">
+              {isVideoOff ? (
+                <div className="w-full h-full flex flex-col items-center justify-center bg-slate-800">
+                  <CameraOff className="w-6 h-6 text-slate-500 mb-1" />
+                  <span className="text-xs text-slate-500">Off</span>
+                </div>
+              ) : (
+                <video ref={localVideoRef} autoPlay playsInline muted className="w-full h-full object-cover" />
+              )}
+            </div>
+          )}
+
+          {/* Controls */}
+          <div className="relative z-10 pb-10 px-6">
+            {/* Secondary controls row */}
+            <div className="flex items-center justify-center space-x-6 mb-6">
               <button
-                onClick={handleToggleMute}
-                className={`p-2 rounded-full transition-colors ${isMuted ? 'bg-red-500 text-white' : 'bg-slate-700 text-slate-300 hover:bg-slate-600'}`}
+                onClick={handleToggleHold}
+                className="flex flex-col items-center space-y-1.5 group"
               >
-                {isMuted ? <MicOff className="w-4 h-4" /> : <Mic className="w-4 h-4" />}
+                <div className={`w-14 h-14 rounded-full flex items-center justify-center transition-all ${isOnHold ? 'bg-yellow-500 shadow-lg shadow-yellow-500/40' : 'bg-white/15 backdrop-blur-sm hover:bg-white/25'}`}>
+                  {isOnHold ? <PlayCircle className="w-6 h-6 text-white" /> : <PauseCircle className="w-6 h-6 text-white" />}
+                </div>
+                <span className="text-xs text-slate-300">{isOnHold ? 'Resume' : 'Hold'}</span>
               </button>
-              {callState.isVideo && (
+
+              <button
+                onClick={handleToggleSpeaker}
+                className="flex flex-col items-center space-y-1.5 group"
+              >
+                <div className={`w-14 h-14 rounded-full flex items-center justify-center transition-all ${!isSpeakerOn ? 'bg-white/15 backdrop-blur-sm hover:bg-white/25' : 'bg-white/15 backdrop-blur-sm hover:bg-white/25'}`}>
+                  <Volume2 className={`w-6 h-6 ${isSpeakerOn ? 'text-white' : 'text-slate-400'}`} />
+                </div>
+                <span className="text-xs text-slate-300">Speaker</span>
+              </button>
+
+              {callIsVideo && (
                 <button
                   onClick={handleToggleVideo}
-                  className={`p-2 rounded-full transition-colors ${isVideoOff ? 'bg-red-500 text-white' : 'bg-slate-700 text-slate-300 hover:bg-slate-600'}`}
+                  className="flex flex-col items-center space-y-1.5 group"
                 >
-                  {isVideoOff ? <VideoOff className="w-4 h-4" /> : <Video className="w-4 h-4" />}
+                  <div className={`w-14 h-14 rounded-full flex items-center justify-center transition-all ${isVideoOff ? 'bg-slate-600 shadow-inner' : 'bg-white/15 backdrop-blur-sm hover:bg-white/25'}`}>
+                    {isVideoOff ? <CameraOff className="w-6 h-6 text-slate-300" /> : <Camera className="w-6 h-6 text-white" />}
+                  </div>
+                  <span className="text-xs text-slate-300">{isVideoOff ? 'Camera off' : 'Camera'}</span>
                 </button>
               )}
+            </div>
+
+            {/* Primary controls row */}
+            <div className="flex items-center justify-center space-x-8">
+              <button
+                onClick={handleToggleMute}
+                className="flex flex-col items-center space-y-1.5"
+              >
+                <div className={`w-16 h-16 rounded-full flex items-center justify-center transition-all ${isMuted ? 'bg-red-500 shadow-lg shadow-red-500/40' : 'bg-white/15 backdrop-blur-sm hover:bg-white/25'}`}>
+                  {isMuted ? <MicOff className="w-7 h-7 text-white" /> : <Mic className="w-7 h-7 text-white" />}
+                </div>
+                <span className="text-xs text-slate-300">{isMuted ? 'Unmute' : 'Mute'}</span>
+              </button>
+
               <button
                 onClick={handleEndCall}
-                className="p-2 bg-red-500 hover:bg-red-600 text-white rounded-full transition-colors"
+                className="flex flex-col items-center space-y-1.5"
               >
-                <X className="w-4 h-4" />
+                <div className="w-20 h-20 rounded-full bg-red-500 hover:bg-red-600 flex items-center justify-center transition-all shadow-xl shadow-red-500/50 active:scale-95">
+                  <PhoneOff className="w-9 h-9 text-white" />
+                </div>
+                <span className="text-xs text-slate-300">End call</span>
+              </button>
+
+              <button
+                onClick={() => {}}
+                className="flex flex-col items-center space-y-1.5 opacity-50 cursor-not-allowed"
+              >
+                <div className="w-16 h-16 rounded-full bg-white/15 backdrop-blur-sm flex items-center justify-center">
+                  <PhoneCall className="w-7 h-7 text-white" />
+                </div>
+                <span className="text-xs text-slate-300">Add</span>
               </button>
             </div>
           </div>
-        </div>
-      )}
-
-      {/* Video Call Area */}
-      {(callState.isActive || webrtcCallActive) && callState.isVideo && (
-        <div className="relative h-96 bg-slate-900">
-          <video ref={remoteVideoRef} autoPlay playsInline className="w-full h-full object-cover" />
-          <video ref={localVideoRef} autoPlay playsInline muted className="absolute bottom-4 right-4 w-48 h-36 object-cover rounded-lg border-2 border-slate-600 shadow-lg" />
         </div>
       )}
 

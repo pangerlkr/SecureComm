@@ -3,7 +3,7 @@ import { supabase } from '../lib/supabase';
 export interface WebRTCSignal {
   from_user: string;
   to_user: string;
-  signal_type: 'offer' | 'answer' | 'ice-candidate' | 'call-start' | 'call-end' | 'call-reject';
+  signal_type: 'offer' | 'answer' | 'ice-candidate' | 'call-start' | 'call-end' | 'call-reject' | 'camera-off' | 'camera-on' | 'call-hold' | 'call-unhold';
   signal_data?: unknown;
 }
 
@@ -173,6 +173,10 @@ export class WebRTCManager {
           break;
         }
 
+        case 'camera-off':
+        case 'camera-on':
+        case 'call-hold':
+        case 'call-unhold':
         case 'call-end':
         case 'call-reject':
           this.onSignalCb?.(signal);
@@ -293,8 +297,37 @@ export class WebRTCManager {
     this.localStream?.getAudioTracks().forEach(t => { t.enabled = enabled; });
   }
 
-  toggleVideo(enabled: boolean) {
+  async toggleVideo(enabled: boolean) {
     this.localStream?.getVideoTracks().forEach(t => { t.enabled = enabled; });
+    if (this.remoteUser) {
+      await this.sendSignal({
+        from_user: this.userName,
+        to_user: this.remoteUser,
+        signal_type: enabled ? 'camera-on' : 'camera-off'
+      });
+    }
+  }
+
+  async holdCall() {
+    this.localStream?.getTracks().forEach(t => { t.enabled = false; });
+    if (this.remoteUser) {
+      await this.sendSignal({
+        from_user: this.userName,
+        to_user: this.remoteUser,
+        signal_type: 'call-hold'
+      });
+    }
+  }
+
+  async unholdCall() {
+    this.localStream?.getTracks().forEach(t => { t.enabled = true; });
+    if (this.remoteUser) {
+      await this.sendSignal({
+        from_user: this.userName,
+        to_user: this.remoteUser,
+        signal_type: 'call-unhold'
+      });
+    }
   }
 
   disconnect() {
