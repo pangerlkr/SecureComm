@@ -74,10 +74,14 @@ export function useSupabaseChat({ roomId, userName, isHost = false, hostSessionI
 
     const markOfflineSync = () => {
       if (!participantIdRef.current) return;
-      const url = `${import.meta.env.VITE_SUPABASE_URL}/rest/v1/participants?id=eq.${participantIdRef.current}`;
-      const body = JSON.stringify({ is_online: false, last_seen: new Date().toISOString() });
+      const url = `${import.meta.env.VITE_SUPABASE_URL}/rest/v1/rpc/mark_participant_offline`;
+      const body = JSON.stringify({
+        p_participant_id: participantIdRef.current,
+        p_room_id: roomId,
+        p_user_name: userName
+      });
       navigator.sendBeacon(
-        url + '&apikey=' + import.meta.env.VITE_SUPABASE_ANON_KEY,
+        url + '?apikey=' + import.meta.env.VITE_SUPABASE_ANON_KEY,
         new Blob([body], { type: 'application/json' })
       );
     };
@@ -311,14 +315,10 @@ export function useSupabaseChat({ roomId, userName, isHost = false, hostSessionI
 
       const cleanup = async () => {
         if (participantIdRef.current) {
-          await supabase
-            .from('participants')
-            .update({ is_online: false })
-            .eq('id', participantIdRef.current);
-
-          await supabase.rpc('transfer_host_on_leave', {
+          await supabase.rpc('mark_participant_offline', {
+            p_participant_id: participantIdRef.current,
             p_room_id: roomId,
-            p_leaving_user: userName
+            p_user_name: userName
           });
 
           await supabase.from('messages').insert({
