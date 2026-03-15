@@ -200,6 +200,8 @@ export function useSupabaseChat({ roomId, userName }: UseSupabaseChatProps) {
               .from('participants')
               .update({ last_seen: new Date().toISOString() })
               .eq('id', participantIdRef.current);
+
+            await supabase.rpc('cleanup_inactive_participants');
           }
         }, 30000);
 
@@ -216,6 +218,7 @@ export function useSupabaseChat({ roomId, userName }: UseSupabaseChatProps) {
         .from('participants')
         .select('*')
         .eq('room_id', roomId)
+        .eq('is_online', true)
         .order('joined_at', { ascending: true });
 
       if (error) {

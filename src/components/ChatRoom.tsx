@@ -608,14 +608,14 @@ export default function ChatRoom({ roomId, onLeave }: ChatRoomProps) {
           <div className="space-y-3">
             {participants.map((participant) => (
               <div key={participant.id} className="flex items-center space-x-3 p-3 bg-slate-700/50 rounded-lg border border-slate-600/50">
-                <div className={`w-3 h-3 rounded-full ${participant.isOnline ? 'bg-green-400' : 'bg-slate-500'}`}></div>
+                <div className="w-3 h-3 rounded-full bg-green-400 animate-pulse"></div>
                 <div className="flex-1">
                   <div className="text-white font-medium">
                     {participant.name}
                     {participant.name === userName && <span className="text-xs text-slate-400 ml-1">(You)</span>}
                   </div>
-                  <div className="text-xs text-slate-400">
-                    {participant.isOnline ? 'Online' : 'Offline'}
+                  <div className="text-xs text-green-400">
+                    Active now
                   </div>
                 </div>
               </div>
