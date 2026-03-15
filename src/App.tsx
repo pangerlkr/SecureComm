@@ -6,20 +6,19 @@ function App() {
   const [currentRoom, setCurrentRoom] = useState<string | null>(null);
   const [isCreatingRoom, setIsCreatingRoom] = useState(false);
   const [isJoiningFromLink, setIsJoiningFromLink] = useState(false);
+  const [isHost, setIsHost] = useState(false);
+  const [hostSessionId, setHostSessionId] = useState('');
 
   useEffect(() => {
-    // Check for room ID in URL params when component mounts
     const checkUrlParams = () => {
       const urlParams = new URLSearchParams(window.location.search);
       const roomId = urlParams.get('room');
-      
-      console.log('URL params check:', { roomId, search: window.location.search });
-      
+
       if (roomId && roomId.trim()) {
-        console.log('Found room ID in URL:', roomId);
         setIsJoiningFromLink(true);
-        
-        // Small delay to show joining state
+        setIsHost(false);
+        setHostSessionId('');
+
         setTimeout(() => {
           setCurrentRoom(roomId.trim().toUpperCase());
           setIsJoiningFromLink(false);
@@ -27,25 +26,22 @@ function App() {
       }
     };
 
-    // Check immediately
     checkUrlParams();
-    
-    // Also check after a small delay in case URL changes
     const timeoutId = setTimeout(checkUrlParams, 100);
-    
     return () => clearTimeout(timeoutId);
   }, []);
 
-  // Listen for URL changes (back/forward navigation)
   useEffect(() => {
     const handlePopState = () => {
       const urlParams = new URLSearchParams(window.location.search);
       const roomId = urlParams.get('room');
-      
+
       if (roomId && roomId.trim()) {
         setCurrentRoom(roomId.trim().toUpperCase());
+        setIsHost(false);
       } else {
         setCurrentRoom(null);
+        setIsHost(false);
       }
     };
 
@@ -57,12 +53,18 @@ function App() {
     return Math.random().toString(36).substring(2, 12).toUpperCase();
   };
 
+  const generateSessionId = (): string => {
+    return Math.random().toString(36).substring(2) + Date.now().toString(36);
+  };
+
   const handleCreateRoom = () => {
     setIsCreatingRoom(true);
     setTimeout(() => {
       const roomId = generateRoomId();
+      const sessionId = generateSessionId();
       setCurrentRoom(roomId);
-      // Update URL without page reload
+      setIsHost(true);
+      setHostSessionId(sessionId);
       window.history.pushState({}, '', `?room=${roomId}`);
       setIsCreatingRoom(false);
     }, 1500);
@@ -72,29 +74,22 @@ function App() {
     if (roomId && roomId.trim()) {
       const cleanRoomId = roomId.trim().toUpperCase();
       setCurrentRoom(cleanRoomId);
-      // Update URL without page reload
+      setIsHost(false);
+      setHostSessionId('');
       window.history.pushState({}, '', `?room=${cleanRoomId}`);
     }
   };
 
   const handleLeaveRoom = () => {
     setCurrentRoom(null);
-    // Clear URL params
+    setIsHost(false);
+    setHostSessionId('');
     window.history.pushState({}, '', window.location.pathname);
   };
 
-  // Debug logging
-  console.log('App state:', { 
-    currentRoom, 
-    isCreatingRoom, 
-    isJoiningFromLink, 
-    urlSearch: window.location.search 
-  });
-
-  // Show joining state when accessing via shared link
   if (isJoiningFromLink) {
     return (
-      <div className="min-h-screen bg-gradient-to-br from-slate-900 via-purple-900 to-slate-900 flex items-center justify-center">
+      <div className="min-h-screen bg-gradient-to-br from-slate-900 via-slate-800 to-slate-900 flex items-center justify-center">
         <div className="text-center">
           <div className="inline-flex items-center justify-center w-16 h-16 bg-emerald-500/20 rounded-full mb-6">
             <div className="w-8 h-8 border-2 border-emerald-400/30 border-t-emerald-400 rounded-full animate-spin"></div>
@@ -107,10 +102,9 @@ function App() {
     );
   }
 
-  // Show creating room state
   if (isCreatingRoom) {
     return (
-      <div className="min-h-screen bg-gradient-to-br from-slate-900 via-purple-900 to-slate-900 flex items-center justify-center">
+      <div className="min-h-screen bg-gradient-to-br from-slate-900 via-slate-800 to-slate-900 flex items-center justify-center">
         <div className="text-center">
           <div className="inline-flex items-center justify-center w-16 h-16 bg-blue-500/20 rounded-full mb-6">
             <div className="w-8 h-8 border-2 border-blue-400/30 border-t-blue-400 rounded-full animate-spin"></div>
@@ -122,12 +116,17 @@ function App() {
     );
   }
 
-  // Show chat room if user is in a room
   if (currentRoom) {
-    return <ChatRoom roomId={currentRoom} onLeave={handleLeaveRoom} />;
+    return (
+      <ChatRoom
+        roomId={currentRoom}
+        isHost={isHost}
+        hostSessionId={hostSessionId}
+        onLeave={handleLeaveRoom}
+      />
+    );
   }
 
-  // Show landing page
   return <Landing onCreateRoom={handleCreateRoom} onJoinRoom={handleJoinRoom} />;
 }
 

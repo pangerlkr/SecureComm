@@ -14,6 +14,7 @@ export interface Participant {
   name: string;
   isOnline: boolean;
   joinedAt: number;
+  sessionId?: string;
 }
 
 export interface Room {
@@ -22,6 +23,8 @@ export interface Room {
   messages: Message[];
   createdAt: number;
   isDestroyed: boolean;
+  hostName?: string;
+  isLocked?: boolean;
 }
 
 export interface CallState {
@@ -29,4 +32,11 @@ export interface CallState {
   isVideo: boolean;
   isIncoming: boolean;
   participantName?: string;
+}
+
+export interface RoomSettings {
+  isHost: boolean;
+  hostSessionId: string;
+  isLocked: boolean;
+  pincode: string;
 }
