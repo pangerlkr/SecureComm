@@ -4,129 +4,154 @@ export interface WebRTCSignal {
   from_user: string;
   to_user: string;
   signal_type: 'offer' | 'answer' | 'ice-candidate' | 'call-start' | 'call-end' | 'call-reject';
-  signal_data?: any;
+  signal_data?: unknown;
 }
 
+type SignalCallback = (signal: WebRTCSignal) => void;
+type StreamCallback = (stream: MediaStream) => void;
+
+const ICE_SERVERS: RTCIceServer[] = [
+  { urls: ['stun:stun.l.google.com:19302', 'stun:stun1.l.google.com:19302'] },
+  {
+    urls: 'turn:openrelay.metered.ca:80',
+    username: 'openrelayproject',
+    credential: 'openrelayproject'
+  },
+  {
+    urls: 'turn:openrelay.metered.ca:443',
+    username: 'openrelayproject',
+    credential: 'openrelayproject'
+  }
+];
+
 export class WebRTCManager {
-  private peerConnection: RTCPeerConnection | null = null;
+  private pc: RTCPeerConnection | null = null;
   private localStream: MediaStream | null = null;
-  private roomId: string;
-  private userName: string;
-  private onRemoteStreamCallback?: (stream: MediaStream) => void;
-  private onSignalCallback?: (signal: WebRTCSignal) => void;
-  private signalChannel: any = null;
+  private remoteUser: string | null = null;
+  private readonly roomId: string;
+  private readonly userName: string;
+  private signalChannel: ReturnType<typeof supabase.channel> | null = null;
+  private onRemoteStreamCb?: StreamCallback;
+  private onSignalCb?: SignalCallback;
+  private pendingCandidates: RTCIceCandidateInit[] = [];
+  private remoteDescSet = false;
 
   constructor(roomId: string, userName: string) {
     this.roomId = roomId;
     this.userName = userName;
   }
 
-  async initialize() {
-    this.signalChannel = supabase.channel(`webrtc:${this.roomId}:${this.userName}`);
+  initialize() {
+    if (this.signalChannel) return;
 
+    this.signalChannel = supabase.channel(`webrtc:${this.roomId}:${this.userName}`);
     this.signalChannel
-      .on('postgres_changes',
+      .on(
+        'postgres_changes',
         {
           event: 'INSERT',
           schema: 'public',
           table: 'webrtc_signals',
           filter: `to_user=eq.${this.userName}`
         },
-        async (payload: any) => {
-          const signal = payload.new;
+        async (payload) => {
+          const row = payload.new as {
+            id: string;
+            from_user: string;
+            to_user: string;
+            signal_type: WebRTCSignal['signal_type'];
+            signal_data: unknown;
+          };
           await this.handleSignal({
-            from_user: signal.from_user,
-            to_user: signal.to_user,
-            signal_type: signal.signal_type,
-            signal_data: signal.signal_data
+            from_user: row.from_user,
+            to_user: row.to_user,
+            signal_type: row.signal_type,
+            signal_data: row.signal_data
           });
-
-          await supabase
-            .from('webrtc_signals')
-            .update({ processed: true })
-            .eq('id', signal.id);
+          await supabase.from('webrtc_signals').update({ processed: true }).eq('id', row.id);
         }
       )
       .subscribe();
   }
 
-  private initializePeerConnection() {
-    if (this.peerConnection) {
-      return;
+  onRemoteStream(cb: StreamCallback) { this.onRemoteStreamCb = cb; }
+  onSignal(cb: SignalCallback) { this.onSignalCb = cb; }
+
+  private createPeerConnection(): RTCPeerConnection {
+    if (this.pc) {
+      this.pc.close();
     }
 
-    this.peerConnection = new RTCPeerConnection({
-      iceServers: [
-        { urls: 'stun:stun.l.google.com:19302' },
-        { urls: 'stun:stun1.l.google.com:19302' },
-        { urls: 'stun:stun2.l.google.com:19302' }
-      ]
-    });
+    this.remoteDescSet = false;
+    this.pendingCandidates = [];
 
-    this.peerConnection.onicecandidate = async (event) => {
-      if (event.candidate) {
+    const pc = new RTCPeerConnection({ iceServers: ICE_SERVERS });
+
+    pc.onicecandidate = async (e) => {
+      if (e.candidate && this.remoteUser) {
         await this.sendSignal({
           from_user: this.userName,
-          to_user: '',
+          to_user: this.remoteUser,
           signal_type: 'ice-candidate',
-          signal_data: event.candidate.toJSON()
+          signal_data: e.candidate.toJSON()
         });
       }
     };
 
-    this.peerConnection.ontrack = (event) => {
-      if (this.onRemoteStreamCallback && event.streams[0]) {
-        this.onRemoteStreamCallback(event.streams[0]);
+    pc.ontrack = (e) => {
+      const stream = e.streams[0];
+      if (stream && this.onRemoteStreamCb) {
+        this.onRemoteStreamCb(stream);
       }
     };
 
-    this.peerConnection.onconnectionstatechange = () => {
-      console.log('Connection state:', this.peerConnection?.connectionState);
+    pc.onconnectionstatechange = () => {
+      if (pc.connectionState === 'failed') {
+        pc.restartIce();
+      }
     };
+
+    this.pc = pc;
+    return pc;
   }
 
-  onRemoteStream(callback: (stream: MediaStream) => void) {
-    this.onRemoteStreamCallback = callback;
-  }
-
-  onSignal(callback: (signal: WebRTCSignal) => void) {
-    this.onSignalCallback = callback;
+  private async drainPendingCandidates() {
+    for (const candidate of this.pendingCandidates) {
+      try {
+        await this.pc!.addIceCandidate(new RTCIceCandidate(candidate));
+      } catch { /* ignore stale candidates */ }
+    }
+    this.pendingCandidates = [];
   }
 
   private async sendSignal(signal: WebRTCSignal) {
-    try {
-      await supabase.from('webrtc_signals').insert({
-        room_id: this.roomId,
-        from_user: signal.from_user,
-        to_user: signal.to_user || null,
-        signal_type: signal.signal_type,
-        signal_data: signal.signal_data || null
-      });
-    } catch (error) {
-      console.error('Error sending signal:', error);
-    }
+    await supabase.from('webrtc_signals').insert({
+      room_id: this.roomId,
+      from_user: signal.from_user,
+      to_user: signal.to_user,
+      signal_type: signal.signal_type,
+      signal_data: signal.signal_data ?? null
+    });
   }
 
   private async handleSignal(signal: WebRTCSignal) {
-    if (!this.peerConnection && signal.signal_type !== 'call-start') {
-      return;
-    }
-
     try {
       switch (signal.signal_type) {
         case 'call-start':
-          if (this.onSignalCallback) {
-            this.onSignalCallback(signal);
-          }
+          this.onSignalCb?.(signal);
           break;
 
-        case 'offer':
-          this.initializePeerConnection();
-          await this.peerConnection!.setRemoteDescription(
-            new RTCSessionDescription(signal.signal_data)
-          );
-          const answer = await this.peerConnection!.createAnswer();
-          await this.peerConnection!.setLocalDescription(answer);
+        case 'offer': {
+          this.remoteUser = signal.from_user;
+          const pc = this.createPeerConnection();
+          if (this.localStream) {
+            this.localStream.getTracks().forEach(t => pc.addTrack(t, this.localStream!));
+          }
+          await pc.setRemoteDescription(new RTCSessionDescription(signal.signal_data as RTCSessionDescriptionInit));
+          this.remoteDescSet = true;
+          await this.drainPendingCandidates();
+          const answer = await pc.createAnswer();
+          await pc.setLocalDescription(answer);
           await this.sendSignal({
             from_user: this.userName,
             to_user: signal.from_user,
@@ -134,57 +159,60 @@ export class WebRTCManager {
             signal_data: answer
           });
           break;
+        }
 
-        case 'answer':
-          await this.peerConnection!.setRemoteDescription(
-            new RTCSessionDescription(signal.signal_data)
-          );
+        case 'answer': {
+          if (!this.pc) return;
+          await this.pc.setRemoteDescription(new RTCSessionDescription(signal.signal_data as RTCSessionDescriptionInit));
+          this.remoteDescSet = true;
+          await this.drainPendingCandidates();
           break;
+        }
 
-        case 'ice-candidate':
-          if (signal.signal_data) {
-            await this.peerConnection!.addIceCandidate(
-              new RTCIceCandidate(signal.signal_data)
-            );
+        case 'ice-candidate': {
+          const candidate = signal.signal_data as RTCIceCandidateInit;
+          if (!candidate) return;
+          if (this.pc && this.remoteDescSet) {
+            try {
+              await this.pc.addIceCandidate(new RTCIceCandidate(candidate));
+            } catch { /* ignore */ }
+          } else {
+            this.pendingCandidates.push(candidate);
           }
           break;
+        }
 
         case 'call-end':
         case 'call-reject':
-          if (this.onSignalCallback) {
-            this.onSignalCallback(signal);
-          }
+          this.onSignalCb?.(signal);
           break;
       }
-    } catch (error) {
-      console.error('Error handling signal:', error);
+    } catch (err) {
+      console.error('Error handling WebRTC signal:', err);
     }
   }
 
   async startCall(toUser: string, isVideo: boolean): Promise<MediaStream | null> {
     try {
+      this.remoteUser = toUser;
+
+      this.localStream = await navigator.mediaDevices.getUserMedia({
+        video: isVideo ? { width: { ideal: 1280 }, height: { ideal: 720 } } : false,
+        audio: { echoCancellation: true, noiseSuppression: true }
+      });
+
+      const pc = this.createPeerConnection();
+      this.localStream.getTracks().forEach(t => pc.addTrack(t, this.localStream!));
+
+      const offer = await pc.createOffer({ offerToReceiveAudio: true, offerToReceiveVideo: isVideo });
+      await pc.setLocalDescription(offer);
+
       await this.sendSignal({
         from_user: this.userName,
         to_user: toUser,
         signal_type: 'call-start',
         signal_data: { isVideo }
       });
-
-      this.localStream = await navigator.mediaDevices.getUserMedia({
-        video: isVideo,
-        audio: true
-      });
-
-      this.initializePeerConnection();
-
-      this.localStream.getTracks().forEach(track => {
-        if (this.peerConnection && this.localStream) {
-          this.peerConnection.addTrack(track, this.localStream);
-        }
-      });
-
-      const offer = await this.peerConnection!.createOffer();
-      await this.peerConnection!.setLocalDescription(offer);
 
       await this.sendSignal({
         from_user: this.userName,
@@ -194,30 +222,31 @@ export class WebRTCManager {
       });
 
       return this.localStream;
-    } catch (error) {
-      console.error('Error starting call:', error);
+    } catch (err) {
+      console.error('Error starting call:', err);
+      this.stopMedia();
       return null;
     }
   }
 
   async acceptCall(fromUser: string, isVideo: boolean): Promise<MediaStream | null> {
     try {
+      this.remoteUser = fromUser;
+
       this.localStream = await navigator.mediaDevices.getUserMedia({
-        video: isVideo,
-        audio: true
+        video: isVideo ? { width: { ideal: 1280 }, height: { ideal: 720 } } : false,
+        audio: { echoCancellation: true, noiseSuppression: true }
       });
 
-      this.initializePeerConnection();
-
-      this.localStream.getTracks().forEach(track => {
-        if (this.peerConnection && this.localStream) {
-          this.peerConnection.addTrack(track, this.localStream);
-        }
-      });
+      if (!this.pc) {
+        this.createPeerConnection();
+      }
+      this.localStream.getTracks().forEach(t => this.pc!.addTrack(t, this.localStream!));
 
       return this.localStream;
-    } catch (error) {
-      console.error('Error accepting call:', error);
+    } catch (err) {
+      console.error('Error accepting call:', err);
+      this.stopMedia();
       return null;
     }
   }
@@ -228,6 +257,7 @@ export class WebRTCManager {
       to_user: fromUser,
       signal_type: 'call-reject'
     });
+    this.cleanup();
   }
 
   async endCall(toUser: string) {
@@ -236,41 +266,37 @@ export class WebRTCManager {
       to_user: toUser,
       signal_type: 'call-end'
     });
-
-    this.stopCall();
+    this.cleanup();
   }
 
-  stopCall() {
+  private stopMedia() {
     if (this.localStream) {
-      this.localStream.getTracks().forEach(track => track.stop());
+      this.localStream.getTracks().forEach(t => t.stop());
       this.localStream = null;
     }
   }
 
-  toggleAudio(enabled: boolean) {
-    if (this.localStream) {
-      this.localStream.getAudioTracks().forEach(track => {
-        track.enabled = enabled;
-      });
+  private cleanup() {
+    this.stopMedia();
+    if (this.pc) {
+      this.pc.close();
+      this.pc = null;
     }
+    this.remoteUser = null;
+    this.remoteDescSet = false;
+    this.pendingCandidates = [];
+  }
+
+  toggleAudio(enabled: boolean) {
+    this.localStream?.getAudioTracks().forEach(t => { t.enabled = enabled; });
   }
 
   toggleVideo(enabled: boolean) {
-    if (this.localStream) {
-      this.localStream.getVideoTracks().forEach(track => {
-        track.enabled = enabled;
-      });
-    }
+    this.localStream?.getVideoTracks().forEach(t => { t.enabled = enabled; });
   }
 
   disconnect() {
-    this.stopCall();
-
-    if (this.peerConnection) {
-      this.peerConnection.close();
-      this.peerConnection = null;
-    }
-
+    this.cleanup();
     if (this.signalChannel) {
       supabase.removeChannel(this.signalChannel);
       this.signalChannel = null;

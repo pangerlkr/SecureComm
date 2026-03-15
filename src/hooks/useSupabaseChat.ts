@@ -24,12 +24,24 @@ export function useSupabaseChat({ roomId, userName, isHost = false, hostSessionI
 
   const channelRef = useRef<RealtimeChannel | null>(null);
   const participantIdRef = useRef<string | null>(null);
-  const participantSessionIdRef = useRef<string>('');
+  const sessionIdRef = useRef<string>('');
+  const loadedMessageIdsRef = useRef<Set<string>>(new Set());
   const typingTimeoutRef = useRef<NodeJS.Timeout | null>(null);
   const heartbeatIntervalRef = useRef<NodeJS.Timeout | null>(null);
   const mountedRef = useRef(false);
 
   const generateSessionId = () => Math.random().toString(36).substring(2) + Date.now().toString(36);
+
+  const rowToMessage = (msg: Record<string, unknown>): Message => ({
+    id: msg.id as string,
+    content: msg.content as string,
+    timestamp: new Date(msg.created_at as string).getTime(),
+    sender: msg.sender as string,
+    type: msg.type as Message['type'],
+    fileName: (msg.file_name as string) || undefined,
+    fileSize: (msg.file_size as number) || undefined,
+    encrypted: msg.encrypted as boolean
+  });
 
   const loadParticipants = useCallback(async () => {
     const { data, error } = await supabase
@@ -39,12 +51,9 @@ export function useSupabaseChat({ roomId, userName, isHost = false, hostSessionI
       .eq('is_online', true)
       .order('joined_at', { ascending: true });
 
-    if (error) {
-      console.error('Error loading participants:', error);
-      return;
-    }
+    if (error || !mountedRef.current) return;
 
-    if (mountedRef.current && data) {
+    if (data) {
       setParticipants(data.map(p => ({
         id: p.id,
         name: p.user_name,
@@ -56,19 +65,21 @@ export function useSupabaseChat({ roomId, userName, isHost = false, hostSessionI
   }, [roomId]);
 
   useEffect(() => {
-    if (!userName.trim() || !roomId.trim()) {
-      return;
-    }
+    if (!userName.trim() || !roomId.trim()) return;
 
     mountedRef.current = true;
+    loadedMessageIdsRef.current = new Set();
     const sessionId = generateSessionId();
-    participantSessionIdRef.current = sessionId;
+    sessionIdRef.current = sessionId;
 
     const markOfflineSync = () => {
       if (!participantIdRef.current) return;
       const url = `${import.meta.env.VITE_SUPABASE_URL}/rest/v1/participants?id=eq.${participantIdRef.current}`;
       const body = JSON.stringify({ is_online: false, last_seen: new Date().toISOString() });
-      navigator.sendBeacon(url + '&apikey=' + import.meta.env.VITE_SUPABASE_ANON_KEY, new Blob([body], { type: 'application/json' }));
+      navigator.sendBeacon(
+        url + '&apikey=' + import.meta.env.VITE_SUPABASE_ANON_KEY,
+        new Blob([body], { type: 'application/json' })
+      );
     };
 
     window.addEventListener('beforeunload', markOfflineSync);
@@ -80,20 +91,23 @@ export function useSupabaseChat({ roomId, userName, isHost = false, hostSessionI
 
         const { data: roomData, error: roomFetchError } = await supabase
           .from('rooms')
-          .select('id, host_name, host_session_id, is_locked, pincode')
+          .select('id, host_name, is_locked, pincode')
           .eq('id', roomId)
           .maybeSingle();
 
         if (roomFetchError) {
-          console.error('Error fetching room:', roomFetchError);
-          if (mountedRef.current) setConnectionError('Failed to connect to room');
-          setJoinStatus('error');
+          if (mountedRef.current) {
+            setConnectionError('Failed to connect to room');
+            setJoinStatus('error');
+          }
           return;
         }
 
         if (roomData) {
-          setRoomHostName(roomData.host_name || '');
-          setRoomIsLocked(roomData.is_locked || false);
+          if (mountedRef.current) {
+            setRoomHostName(roomData.host_name || '');
+            setRoomIsLocked(roomData.is_locked || false);
+          }
         }
 
         if (!isHost) {
@@ -105,7 +119,7 @@ export function useSupabaseChat({ roomId, userName, isHost = false, hostSessionI
             .maybeSingle();
 
           if (banData) {
-            setJoinStatus('banned');
+            if (mountedRef.current) setJoinStatus('banned');
             return;
           }
         }
@@ -121,9 +135,10 @@ export function useSupabaseChat({ roomId, userName, isHost = false, hostSessionI
             }, { onConflict: 'id' });
 
           if (roomError) {
-            console.error('Error creating room:', roomError);
-            setConnectionError('Failed to initialize room');
-            setJoinStatus('error');
+            if (mountedRef.current) {
+              setConnectionError('Failed to initialize room');
+              setJoinStatus('error');
+            }
             return;
           }
         } else {
@@ -135,146 +150,96 @@ export function useSupabaseChat({ roomId, userName, isHost = false, hostSessionI
 
         const { data: existingParticipant } = await supabase
           .from('participants')
-          .select('id, session_id')
+          .select('id, is_online')
           .eq('room_id', roomId)
           .eq('user_name', userName)
           .maybeSingle();
 
         if (existingParticipant) {
           participantIdRef.current = existingParticipant.id;
-
-          const { data: prevState } = await supabase
-            .from('participants')
-            .select('is_online')
-            .eq('id', existingParticipant.id)
-            .maybeSingle();
-
-          const wasOffline = prevState && !prevState.is_online;
+          const wasOffline = !existingParticipant.is_online;
 
           await supabase
             .from('participants')
-            .update({
-              is_online: true,
-              last_seen: new Date().toISOString(),
-              session_id: sessionId
-            })
+            .update({ is_online: true, last_seen: new Date().toISOString(), session_id: sessionId })
             .eq('id', existingParticipant.id);
 
           if (wasOffline) {
-            await supabase.from('messages').insert({
-              room_id: roomId,
-              sender: 'System',
-              content: `${userName} rejoined the room`,
-              type: 'system',
-              encrypted: false
-            });
-
             if (isHost) {
-              await supabase
-                .from('rooms')
-                .update({ host_name: userName })
-                .eq('id', roomId);
+              await supabase.from('rooms').update({ host_name: userName }).eq('id', roomId);
             }
+            await supabase.from('messages').insert({
+              room_id: roomId, sender: 'System',
+              content: `${userName} rejoined the room`, type: 'system', encrypted: false
+            });
           }
         } else {
           const { data: newParticipant, error: insertError } = await supabase
             .from('participants')
-            .insert({
-              room_id: roomId,
-              user_name: userName,
-              is_online: true,
-              session_id: sessionId
-            })
+            .insert({ room_id: roomId, user_name: userName, is_online: true, session_id: sessionId })
             .select()
             .single();
 
-          if (insertError) {
-            console.error('Error creating participant:', insertError);
-            setConnectionError('Failed to join room');
-            setJoinStatus('error');
+          if (insertError || !newParticipant) {
+            if (mountedRef.current) {
+              setConnectionError('Failed to join room');
+              setJoinStatus('error');
+            }
             return;
           }
 
           participantIdRef.current = newParticipant.id;
-
-          await supabase
-            .from('messages')
-            .insert({
-              room_id: roomId,
-              sender: 'System',
-              content: `${userName} joined the room`,
-              type: 'system',
-              encrypted: false
-            });
+          await supabase.from('messages').insert({
+            room_id: roomId, sender: 'System',
+            content: `${userName} joined the room`, type: 'system', encrypted: false
+          });
         }
 
-        const { data: existingMessages, error: messagesError } = await supabase
+        await loadParticipants();
+
+        const { data: existingMessages } = await supabase
           .from('messages')
           .select('*')
           .eq('room_id', roomId)
           .order('created_at', { ascending: true });
 
-        if (messagesError) {
-          console.error('Error fetching messages:', messagesError);
-        } else if (mountedRef.current && existingMessages) {
-          setMessages(existingMessages.map(msg => ({
-            id: msg.id,
-            content: msg.content,
-            timestamp: new Date(msg.created_at).getTime(),
-            sender: msg.sender,
-            type: msg.type as Message['type'],
-            fileName: msg.file_name || undefined,
-            fileSize: msg.file_size || undefined,
-            encrypted: msg.encrypted
-          })));
+        if (mountedRef.current && existingMessages) {
+          const mapped = existingMessages.map(rowToMessage);
+          mapped.forEach(m => loadedMessageIdsRef.current.add(m.id));
+          setMessages(mapped);
         }
 
-        await loadParticipants();
-
-        const channel = supabase.channel(`room:${roomId}`, {
-          config: { broadcast: { self: true } }
-        });
+        const channel = supabase.channel(`room:${roomId}`);
 
         channel
           .on('postgres_changes',
             { event: 'INSERT', schema: 'public', table: 'messages', filter: `room_id=eq.${roomId}` },
             (payload) => {
               if (!mountedRef.current) return;
-              const newMessage = payload.new;
-              const message: Message = {
-                id: newMessage.id,
-                content: newMessage.content,
-                timestamp: new Date(newMessage.created_at).getTime(),
-                sender: newMessage.sender,
-                type: newMessage.type,
-                fileName: newMessage.file_name || undefined,
-                fileSize: newMessage.file_size || undefined,
-                encrypted: newMessage.encrypted
-              };
-              setMessages(prev => {
-                if (prev.some(m => m.id === message.id)) return prev;
-                return [...prev, message];
-              });
+              const msg = rowToMessage(payload.new as Record<string, unknown>);
+              if (loadedMessageIdsRef.current.has(msg.id)) return;
+              loadedMessageIdsRef.current.add(msg.id);
+              setMessages(prev => [...prev, msg]);
             }
           )
           .on('postgres_changes',
-            { event: '*', schema: 'public', table: 'participants', filter: `room_id=eq.${roomId}` },
-            async (payload) => {
+            { event: 'INSERT', schema: 'public', table: 'participants', filter: `room_id=eq.${roomId}` },
+            () => { if (mountedRef.current) loadParticipants(); }
+          )
+          .on('postgres_changes',
+            { event: 'UPDATE', schema: 'public', table: 'participants', filter: `room_id=eq.${roomId}` },
+            (payload) => {
               if (!mountedRef.current) return;
-
-              if (payload.eventType === 'UPDATE' && payload.new) {
-                const updated = payload.new as { user_name: string; is_online: boolean; session_id: string };
-                if (
-                  updated.user_name === userName &&
-                  !updated.is_online &&
-                  updated.session_id === sessionId
-                ) {
-                  setJoinStatus('kicked');
-                  return;
-                }
+              const updated = payload.new as { user_name: string; is_online: boolean; session_id: string };
+              if (
+                updated.user_name === userName &&
+                !updated.is_online &&
+                updated.session_id === sessionId
+              ) {
+                setJoinStatus('kicked');
+                return;
               }
-
-              await loadParticipants();
+              loadParticipants();
             }
           )
           .on('postgres_changes',
@@ -282,8 +247,8 @@ export function useSupabaseChat({ roomId, userName, isHost = false, hostSessionI
             (payload) => {
               if (!mountedRef.current) return;
               const updated = payload.new as { host_name: string; is_locked: boolean };
-              if (updated.host_name !== undefined) setRoomHostName(updated.host_name);
-              if (updated.is_locked !== undefined) setRoomIsLocked(updated.is_locked);
+              setRoomHostName(updated.host_name ?? '');
+              setRoomIsLocked(updated.is_locked ?? false);
             }
           )
           .on('postgres_changes',
@@ -291,24 +256,18 @@ export function useSupabaseChat({ roomId, userName, isHost = false, hostSessionI
             (payload) => {
               if (!mountedRef.current) return;
               const banned = payload.new as { user_name: string };
-              if (banned.user_name === userName) {
-                setJoinStatus('banned');
+              if (banned.user_name === userName) setJoinStatus('banned');
+            }
+          )
+          .on('broadcast', { event: 'typing' }, ({ payload }) => {
+            if (!mountedRef.current || payload.userName === userName) return;
+            setTypingUsers(prev => {
+              if (payload.isTyping) {
+                return prev.includes(payload.userName) ? prev : [...prev, payload.userName];
               }
-            }
-          )
-          .on('broadcast',
-            { event: 'typing' },
-            ({ payload }) => {
-              if (!mountedRef.current || payload.userName === userName) return;
-              setTypingUsers(prev => {
-                if (payload.isTyping) {
-                  return prev.includes(payload.userName) ? prev : [...prev, payload.userName];
-                } else {
-                  return prev.filter((name: string) => name !== payload.userName);
-                }
-              });
-            }
-          )
+              return prev.filter((n: string) => n !== payload.userName);
+            });
+          })
           .subscribe((status) => {
             if (!mountedRef.current) return;
             if (status === 'SUBSCRIBED') {
@@ -324,18 +283,16 @@ export function useSupabaseChat({ roomId, userName, isHost = false, hostSessionI
         channelRef.current = channel;
 
         heartbeatIntervalRef.current = setInterval(async () => {
-          if (participantIdRef.current) {
+          if (participantIdRef.current && mountedRef.current) {
             await supabase
               .from('participants')
               .update({ last_seen: new Date().toISOString() })
               .eq('id', participantIdRef.current);
-
-            await supabase.rpc('cleanup_inactive_participants');
           }
-        }, 30000);
+        }, 20000);
 
-      } catch (error) {
-        console.error('Error initializing room:', error);
+      } catch (err) {
+        console.error('Error initializing room:', err);
         if (mountedRef.current) {
           setConnectionError('Failed to connect to chat');
           setJoinStatus('error');
@@ -347,10 +304,8 @@ export function useSupabaseChat({ roomId, userName, isHost = false, hostSessionI
 
     return () => {
       mountedRef.current = false;
-
       window.removeEventListener('beforeunload', markOfflineSync);
       window.removeEventListener('pagehide', markOfflineSync);
-
       if (heartbeatIntervalRef.current) clearInterval(heartbeatIntervalRef.current);
       if (typingTimeoutRef.current) clearTimeout(typingTimeoutRef.current);
 
@@ -361,26 +316,19 @@ export function useSupabaseChat({ roomId, userName, isHost = false, hostSessionI
             .update({ is_online: false })
             .eq('id', participantIdRef.current);
 
-          if (isHost) {
-            await supabase.rpc('transfer_host_on_leave', {
-              p_room_id: roomId,
-              p_leaving_user: userName
-            });
-          }
+          await supabase.rpc('transfer_host_on_leave', {
+            p_room_id: roomId,
+            p_leaving_user: userName
+          });
 
-          await supabase
-            .from('messages')
-            .insert({
-              room_id: roomId,
-              sender: 'System',
-              content: `${userName} left the room`,
-              type: 'system',
-              encrypted: false
-            });
+          await supabase.from('messages').insert({
+            room_id: roomId, sender: 'System',
+            content: `${userName} left the room`, type: 'system', encrypted: false
+          });
         }
-
         if (channelRef.current) {
           await supabase.removeChannel(channelRef.current);
+          channelRef.current = null;
         }
       };
 
@@ -390,61 +338,37 @@ export function useSupabaseChat({ roomId, userName, isHost = false, hostSessionI
 
   const sendMessage = async (message: Omit<Message, 'id' | 'timestamp'>) => {
     if (!isConnected) return;
-
-    try {
-      const { error } = await supabase
-        .from('messages')
-        .insert({
-          room_id: roomId,
-          sender: message.sender,
-          content: message.content,
-          type: message.type,
-          file_name: message.fileName || null,
-          file_size: message.fileSize || null,
-          encrypted: message.encrypted || false
-        });
-
-      if (error) {
-        console.error('Error sending message:', error);
-        setConnectionError('Failed to send message');
-      }
-    } catch (error) {
-      console.error('Error sending message:', error);
-      setConnectionError('Failed to send message');
-    }
+    const { error } = await supabase.from('messages').insert({
+      room_id: roomId,
+      sender: message.sender,
+      content: message.content,
+      type: message.type,
+      file_name: message.fileName || null,
+      file_size: message.fileSize || null,
+      encrypted: message.encrypted || false
+    });
+    if (error) setConnectionError('Failed to send message');
   };
 
   const kickParticipant = async (participantName: string) => {
-    const { error } = await supabase
+    await supabase
       .from('participants')
       .update({ is_online: false })
       .eq('room_id', roomId)
       .eq('user_name', participantName);
 
-    if (!error) {
-      await supabase.from('messages').insert({
-        room_id: roomId,
-        sender: 'System',
-        content: `${participantName} was removed from the room`,
-        type: 'system',
-        encrypted: false
-      });
-    }
+    await supabase.from('messages').insert({
+      room_id: roomId, sender: 'System',
+      content: `${participantName} was removed from the room`, type: 'system', encrypted: false
+    });
   };
 
   const banParticipant = async (participantName: string) => {
     await kickParticipant(participantName);
-
-    await supabase
-      .from('banned_participants')
-      .insert({ room_id: roomId, user_name: participantName });
-
+    await supabase.from('banned_participants').insert({ room_id: roomId, user_name: participantName });
     await supabase.from('messages').insert({
-      room_id: roomId,
-      sender: 'System',
-      content: `${participantName} was banned from the room`,
-      type: 'system',
-      encrypted: false
+      room_id: roomId, sender: 'System',
+      content: `${participantName} was banned from the room`, type: 'system', encrypted: false
     });
   };
 
@@ -453,11 +377,7 @@ export function useSupabaseChat({ roomId, userName, isHost = false, hostSessionI
       .from('rooms')
       .update({ is_locked: locked, pincode: locked ? pincode : null })
       .eq('id', roomId);
-
-    if (!error) {
-      setRoomIsLocked(locked);
-    }
-
+    if (!error) setRoomIsLocked(locked);
     return !error;
   };
 
@@ -467,56 +387,26 @@ export function useSupabaseChat({ roomId, userName, isHost = false, hostSessionI
       .select('pincode')
       .eq('id', roomId)
       .maybeSingle();
-
     return data?.pincode === pin;
   };
 
   const startTyping = () => {
     if (!channelRef.current || !isConnected) return;
-
-    channelRef.current.send({
-      type: 'broadcast',
-      event: 'typing',
-      payload: { userName, isTyping: true }
-    });
-
+    channelRef.current.send({ type: 'broadcast', event: 'typing', payload: { userName, isTyping: true } });
     if (typingTimeoutRef.current) clearTimeout(typingTimeoutRef.current);
-
-    typingTimeoutRef.current = setTimeout(() => {
-      stopTyping();
-    }, 3000);
+    typingTimeoutRef.current = setTimeout(stopTyping, 3000);
   };
 
   const stopTyping = () => {
     if (!channelRef.current || !isConnected) return;
-
-    channelRef.current.send({
-      type: 'broadcast',
-      event: 'typing',
-      payload: { userName, isTyping: false }
-    });
-
-    if (typingTimeoutRef.current) {
-      clearTimeout(typingTimeoutRef.current);
-      typingTimeoutRef.current = null;
-    }
+    channelRef.current.send({ type: 'broadcast', event: 'typing', payload: { userName, isTyping: false } });
+    if (typingTimeoutRef.current) { clearTimeout(typingTimeoutRef.current); typingTimeoutRef.current = null; }
   };
 
   return {
-    isConnected,
-    connectionError,
-    messages,
-    participants,
-    typingUsers,
-    joinStatus,
-    roomHostName,
-    roomIsLocked,
-    sendMessage,
-    kickParticipant,
-    banParticipant,
-    updateRoomLock,
-    verifyPincode,
-    startTyping,
-    stopTyping
+    isConnected, connectionError, messages, participants, typingUsers,
+    joinStatus, roomHostName, roomIsLocked,
+    sendMessage, kickParticipant, banParticipant, updateRoomLock, verifyPincode,
+    startTyping, stopTyping
   };
 }

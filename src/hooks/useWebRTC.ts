@@ -27,17 +27,26 @@ export function useWebRTC({
   const [currentCallIsVideo, setCurrentCallIsVideo] = useState(false);
 
   const webrtcManagerRef = useRef<WebRTCManager | null>(null);
+  const currentCallUserRef = useRef<string | null>(null);
   const localVideoRef = useRef<HTMLVideoElement | null>(null);
   const remoteVideoRef = useRef<HTMLVideoElement | null>(null);
 
+  const resetCallState = () => {
+    setIsCallActive(false);
+    setCurrentCallUser(null);
+    currentCallUserRef.current = null;
+    setLocalStream(null);
+    setRemoteStream(null);
+    setCurrentCallIsVideo(false);
+    if (localVideoRef.current) localVideoRef.current.srcObject = null;
+    if (remoteVideoRef.current) remoteVideoRef.current.srcObject = null;
+  };
+
   useEffect(() => {
-    if (!enabled || !userName.trim() || !roomId.trim()) {
-      return;
-    }
+    if (!enabled || !userName.trim() || !roomId.trim()) return;
 
     const manager = new WebRTCManager(roomId, userName);
     webrtcManagerRef.current = manager;
-
     manager.initialize();
 
     manager.onRemoteStream((stream) => {
@@ -49,41 +58,30 @@ export function useWebRTC({
 
     manager.onSignal((signal: WebRTCSignal) => {
       switch (signal.signal_type) {
-        case 'call-start':
-          if (onIncomingCall && signal.signal_data) {
+        case 'call-start': {
+          const data = signal.signal_data as { isVideo: boolean } | undefined;
+          if (onIncomingCall && data) {
             setCurrentCallUser(signal.from_user);
-            setCurrentCallIsVideo(signal.signal_data.isVideo);
-            onIncomingCall({
-              from: signal.from_user,
-              isVideo: signal.signal_data.isVideo
-            });
+            currentCallUserRef.current = signal.from_user;
+            setCurrentCallIsVideo(data.isVideo);
+            onIncomingCall({ from: signal.from_user, isVideo: data.isVideo });
           }
           break;
-
+        }
         case 'call-reject':
-          setIsCallActive(false);
-          setCurrentCallUser(null);
-          if (onCallRejected) {
-            onCallRejected();
-          }
+          resetCallState();
+          onCallRejected?.();
           break;
-
         case 'call-end':
-          setIsCallActive(false);
-          setCurrentCallUser(null);
-          setLocalStream(null);
-          setRemoteStream(null);
-          if (onCallEnded) {
-            onCallEnded();
-          }
+          resetCallState();
+          onCallEnded?.();
           break;
       }
     });
 
     return () => {
-      if (webrtcManagerRef.current) {
-        webrtcManagerRef.current.disconnect();
-      }
+      webrtcManagerRef.current?.disconnect();
+      webrtcManagerRef.current = null;
     };
   }, [roomId, userName, enabled]);
 
@@ -101,65 +99,50 @@ export function useWebRTC({
 
   const startCall = async (toUser: string, isVideo: boolean) => {
     if (!webrtcManagerRef.current) return;
-
     const stream = await webrtcManagerRef.current.startCall(toUser, isVideo);
     if (stream) {
       setLocalStream(stream);
+      if (localVideoRef.current) localVideoRef.current.srcObject = stream;
       setIsCallActive(true);
       setCurrentCallUser(toUser);
+      currentCallUserRef.current = toUser;
       setCurrentCallIsVideo(isVideo);
     }
   };
 
   const acceptCall = async (fromUser: string, isVideo: boolean) => {
     if (!webrtcManagerRef.current) return;
-
     const stream = await webrtcManagerRef.current.acceptCall(fromUser, isVideo);
     if (stream) {
       setLocalStream(stream);
+      if (localVideoRef.current) localVideoRef.current.srcObject = stream;
       setIsCallActive(true);
       setCurrentCallUser(fromUser);
+      currentCallUserRef.current = fromUser;
       setCurrentCallIsVideo(isVideo);
-      if (onCallAccepted) {
-        onCallAccepted();
-      }
+      onCallAccepted?.();
     }
   };
 
   const rejectCall = async (fromUser: string) => {
     if (!webrtcManagerRef.current) return;
-
     await webrtcManagerRef.current.rejectCall(fromUser);
-    setCurrentCallUser(null);
-    if (onCallRejected) {
-      onCallRejected();
-    }
+    resetCallState();
+    onCallRejected?.();
   };
 
   const endCall = async () => {
-    if (!webrtcManagerRef.current || !currentCallUser) return;
-
-    await webrtcManagerRef.current.endCall(currentCallUser);
-    setIsCallActive(false);
-    setCurrentCallUser(null);
-    setLocalStream(null);
-    setRemoteStream(null);
-    if (onCallEnded) {
-      onCallEnded();
+    if (!webrtcManagerRef.current) return;
+    const target = currentCallUserRef.current;
+    if (target) {
+      await webrtcManagerRef.current.endCall(target);
     }
+    resetCallState();
+    onCallEnded?.();
   };
 
-  const toggleAudio = (enabled: boolean) => {
-    if (webrtcManagerRef.current) {
-      webrtcManagerRef.current.toggleAudio(enabled);
-    }
-  };
-
-  const toggleVideo = (enabled: boolean) => {
-    if (webrtcManagerRef.current) {
-      webrtcManagerRef.current.toggleVideo(enabled);
-    }
-  };
+  const toggleAudio = (en: boolean) => webrtcManagerRef.current?.toggleAudio(en);
+  const toggleVideo = (en: boolean) => webrtcManagerRef.current?.toggleVideo(en);
 
   return {
     localStream,
