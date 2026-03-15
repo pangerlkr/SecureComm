@@ -27,6 +27,9 @@ export default function ChatRoom({ roomId, isHost = false, hostSessionId = '', o
   const [isMuted, setIsMuted] = useState(false);
   const [isVideoOff, setIsVideoOff] = useState(false);
   const [isSpeakerOn, setIsSpeakerOn] = useState(true);
+  const [isOutgoingCall, setIsOutgoingCall] = useState(false);
+  const [outgoingCallIsVideo, setOutgoingCallIsVideo] = useState(false);
+  const [outgoingCallTarget, setOutgoingCallTarget] = useState<string | null>(null);
   const [showParticipants, setShowParticipants] = useState(false);
   const [linkCopied, setLinkCopied] = useState(false);
   const [incomingCall, setIncomingCall] = useState<{ from: string; isVideo: boolean; callerId: string } | null>(null);
@@ -127,16 +130,22 @@ export default function ChatRoom({ roomId, isHost = false, hostSessionId = '', o
     onCallAccepted: () => {
       setCallState(prev => ({ ...prev, isActive: true }));
       setIncomingCall(null);
+      setIsOutgoingCall(false);
+      setOutgoingCallTarget(null);
     },
     onCallRejected: () => {
       setCallState({ isActive: false, isVideo: false, isIncoming: false });
       setIncomingCall(null);
+      setIsOutgoingCall(false);
+      setOutgoingCallTarget(null);
     },
     onCallEnded: () => {
       setCallState({ isActive: false, isVideo: false, isIncoming: false });
       setIncomingCall(null);
       setIsMuted(false);
       setIsVideoOff(false);
+      setIsOutgoingCall(false);
+      setOutgoingCallTarget(null);
     }
   });
 
@@ -237,9 +246,18 @@ export default function ChatRoom({ roomId, isHost = false, hostSessionId = '', o
 
     const otherParticipant = participants.find(p => p.name !== userName);
     if (otherParticipant) {
+      setOutgoingCallTarget(otherParticipant.name);
+      setOutgoingCallIsVideo(isVideo);
+      setIsOutgoingCall(true);
       setCallState({ isActive: false, isVideo, isIncoming: false });
       await startCall(otherParticipant.name, isVideo);
     }
+  };
+
+  const clearOutgoingCall = () => {
+    setIsOutgoingCall(false);
+    setOutgoingCallTarget(null);
+    setOutgoingCallIsVideo(false);
   };
 
   const handleAcceptCall = async () => {
@@ -262,6 +280,8 @@ export default function ChatRoom({ roomId, isHost = false, hostSessionId = '', o
     setIsMuted(false);
     setIsVideoOff(false);
     setIsSpeakerOn(true);
+    setIsOutgoingCall(false);
+    setOutgoingCallTarget(null);
   };
 
   const handleToggleMute = () => {
@@ -730,10 +750,30 @@ export default function ChatRoom({ roomId, isHost = false, hostSessionId = '', o
       )}
 
       {/* Full-Screen Call Overlay */}
-      {(callState.isActive || webrtcCallActive) && (
+      {(callState.isActive || webrtcCallActive || isOutgoingCall) && (
         <div className="fixed inset-0 z-40 flex flex-col" style={{ background: '#0a0a0f' }}>
+          {/* Ringing / Calling state (outgoing, not yet accepted) */}
+          {isOutgoingCall && !callState.isActive && !webrtcCallActive && (
+            <div className="absolute inset-0 flex flex-col items-center justify-center bg-gradient-to-br from-slate-800 to-slate-900">
+              <div className="w-32 h-32 rounded-full bg-slate-700 flex items-center justify-center mb-6 border-4 border-slate-600 shadow-2xl relative">
+                <span className="text-5xl font-bold text-slate-300">
+                  {(outgoingCallTarget ?? '?')[0].toUpperCase()}
+                </span>
+                <span className="absolute inset-0 rounded-full border-4 border-green-400/40 animate-ping" />
+              </div>
+              <p className="text-white text-2xl font-semibold mb-2">{outgoingCallTarget}</p>
+              <p className="text-slate-400 text-sm mb-12">Calling...</p>
+              <button onClick={handleEndCall} className="flex flex-col items-center space-y-2">
+                <div className="w-20 h-20 rounded-full bg-red-500 hover:bg-red-600 flex items-center justify-center shadow-xl shadow-red-500/50 active:scale-95 transition-all">
+                  <PhoneOff className="w-9 h-9 text-white" />
+                </div>
+                <span className="text-xs text-slate-300">Cancel</span>
+              </button>
+            </div>
+          )}
+
           {/* Remote Video / Audio Background */}
-          {callIsVideo ? (
+          {(callState.isActive || webrtcCallActive) && (callIsVideo ? (
             <div className="absolute inset-0">
               {remoteCameraOff || remoteOnHold ? (
                 <div className="w-full h-full flex flex-col items-center justify-center bg-gradient-to-br from-slate-800 to-slate-900">
@@ -773,7 +813,10 @@ export default function ChatRoom({ roomId, isHost = false, hostSessionId = '', o
                 </span>
               </div>
             </div>
-          )}
+          ))}
+
+          {/* Active call UI (gradient, top bar, PiP, controls) */}
+          {(callState.isActive || webrtcCallActive) && (<>
 
           {/* Gradient overlay at bottom for controls */}
           <div className="absolute inset-x-0 bottom-0 h-64 bg-gradient-to-t from-black/90 via-black/50 to-transparent pointer-events-none" />
@@ -783,7 +826,11 @@ export default function ChatRoom({ roomId, isHost = false, hostSessionId = '', o
             <div className="flex items-center space-x-3">
               <div className={`w-2.5 h-2.5 rounded-full ${isOnHold || remoteOnHold ? 'bg-yellow-400' : 'bg-green-400 animate-pulse'}`}></div>
               <span className="text-white font-medium text-sm">
-                {isOnHold ? 'On Hold' : remoteOnHold ? `${callWithUser} put call on hold` : callIsVideo ? 'Video Call' : 'Voice Call'}
+                {isOutgoingCall && !callState.isActive
+                  ? 'Calling...'
+                  : isOnHold ? 'On Hold'
+                  : remoteOnHold ? `${callWithUser} put call on hold`
+                  : callIsVideo ? 'Video Call' : 'Voice Call'}
               </span>
             </div>
             <div className="flex items-center space-x-1 bg-white/10 backdrop-blur-sm px-3 py-1.5 rounded-full border border-white/10">
@@ -888,6 +935,7 @@ export default function ChatRoom({ roomId, isHost = false, hostSessionId = '', o
               </button>
             </div>
           </div>
+          </>)}
         </div>
       )}
 
