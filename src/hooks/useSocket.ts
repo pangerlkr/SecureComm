@@ -42,9 +42,9 @@ export function useSocket({
       if (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1') {
         return 'http://localhost:3001';
       }
-      
+
       // In production, use the deployed server
-      return 'https://panger-chat-server.onrender.com';
+      return 'https://securecomm.onrender.com';
     };
 
     const serverUrl = getServerUrl();
