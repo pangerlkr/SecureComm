@@ -35,6 +35,7 @@ export class WebRTCManager {
   private onSignalCb?: SignalCallback;
   private pendingCandidates: RTCIceCandidateInit[] = [];
   private remoteDescSet = false;
+  private pendingOffer: RTCSessionDescriptionInit | null = null;
 
   constructor(roomId: string, userName: string) {
     this.roomId = roomId;
@@ -143,21 +144,11 @@ export class WebRTCManager {
 
         case 'offer': {
           this.remoteUser = signal.from_user;
+          this.pendingOffer = signal.signal_data as RTCSessionDescriptionInit;
           const pc = this.createPeerConnection();
-          if (this.localStream) {
-            this.localStream.getTracks().forEach(t => pc.addTrack(t, this.localStream!));
-          }
-          await pc.setRemoteDescription(new RTCSessionDescription(signal.signal_data as RTCSessionDescriptionInit));
+          await pc.setRemoteDescription(new RTCSessionDescription(this.pendingOffer));
           this.remoteDescSet = true;
           await this.drainPendingCandidates();
-          const answer = await pc.createAnswer();
-          await pc.setLocalDescription(answer);
-          await this.sendSignal({
-            from_user: this.userName,
-            to_user: signal.from_user,
-            signal_type: 'answer',
-            signal_data: answer
-          });
           break;
         }
 
@@ -243,6 +234,16 @@ export class WebRTCManager {
       }
       this.localStream.getTracks().forEach(t => this.pc!.addTrack(t, this.localStream!));
 
+      const answer = await this.pc!.createAnswer();
+      await this.pc!.setLocalDescription(answer);
+      await this.sendSignal({
+        from_user: this.userName,
+        to_user: fromUser,
+        signal_type: 'answer',
+        signal_data: answer
+      });
+
+      this.pendingOffer = null;
       return this.localStream;
     } catch (err) {
       console.error('Error accepting call:', err);
@@ -285,6 +286,7 @@ export class WebRTCManager {
     this.remoteUser = null;
     this.remoteDescSet = false;
     this.pendingCandidates = [];
+    this.pendingOffer = null;
   }
 
   toggleAudio(enabled: boolean) {
