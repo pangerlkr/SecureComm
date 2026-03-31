@@ -7,6 +7,7 @@ import FeaturesSection from './landing/FeaturesSection';
 import StatsSection from './landing/StatsSection';
 import UseCasesSection from './landing/UseCasesSection';
 import ShowcaseSlideshow from './landing/ShowcaseSlideshow';
+import Footer from './landing/Footer';
 
 interface LandingProps {
   onCreateRoom: () => void;
@@ -60,11 +61,7 @@ export default function Landing({ onCreateRoom, onJoinRoom }: LandingProps) {
 
         <FeaturesSection />
 
-        <footer className="py-12 px-4 text-center border-t border-white/5">
-          <p className="text-slate-600 text-sm">
-            No registration &nbsp;&bull;&nbsp; Zero data retention &nbsp;&bull;&nbsp; Open source security
-          </p>
-        </footer>
+        <Footer />
       </div>
     </div>
   );
