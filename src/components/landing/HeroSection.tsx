@@ -66,13 +66,9 @@ export default function HeroSection() {
           </div>
         </div>
 
-        <h1 className={`transition-all duration-1000 delay-300 ${visible ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-8'}`}>
-          <span className="block text-6xl lg:text-8xl font-bold text-white leading-none tracking-tight mb-2">
-            Secure
-          </span>
-          <span className="block text-6xl lg:text-8xl font-bold leading-none tracking-tight bg-gradient-to-r from-sky-400 via-cyan-300 to-emerald-400 bg-clip-text text-transparent">
-            Comm
-          </span>
+        <h1 className={`text-6xl lg:text-8xl font-bold leading-none tracking-tight whitespace-nowrap transition-all duration-1000 delay-300 ${visible ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-8'}`}>
+          <span className="text-white">Secure</span>
+          <span className="bg-gradient-to-r from-sky-400 via-cyan-300 to-emerald-400 bg-clip-text text-transparent">Comm</span>
         </h1>
 
         <p className={`mt-6 text-lg lg:text-xl text-slate-400 max-w-xl mx-auto leading-relaxed transition-all duration-1000 delay-500 ${visible ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-8'}`}>
