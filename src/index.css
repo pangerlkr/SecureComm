@@ -61,6 +61,43 @@
 
 .delay-500 { animation-delay: 0.5s; }
 
+/* ===== DIRECTIONAL SLIDE REVEALS ===== */
+.reveal-from-left {
+  opacity: 0;
+  transform: translateX(-60px);
+  transition: opacity 0.7s cubic-bezier(0.16, 1, 0.3, 1),
+              transform 0.7s cubic-bezier(0.16, 1, 0.3, 1);
+}
+.reveal-from-right {
+  opacity: 0;
+  transform: translateX(60px);
+  transition: opacity 0.7s cubic-bezier(0.16, 1, 0.3, 1),
+              transform 0.7s cubic-bezier(0.16, 1, 0.3, 1);
+}
+.reveal-slide-in {
+  opacity: 1 !important;
+  transform: translateX(0) !important;
+}
+
+/* ===== SLIDESHOW TRANSITIONS ===== */
+.slide-content {
+  transition: opacity 0.32s ease, transform 0.32s cubic-bezier(0.4, 0, 0.2, 1);
+}
+.slide-enter {
+  opacity: 1;
+  transform: translateX(0);
+}
+.slide-exit-left {
+  opacity: 0;
+  transform: translateX(-24px);
+  pointer-events: none;
+}
+.slide-exit-right {
+  opacity: 0;
+  transform: translateX(24px);
+  pointer-events: none;
+}
+
 .secure-room {
   -webkit-user-select: none;
   -moz-user-select: none;
