@@ -1,6 +1,6 @@
 import React, { useEffect, useRef, useState, useCallback } from 'react';
 import {
-  Shield, Code2, Cpu, Lock, Globe, Mail, Phone,
+  Shield, Code2, Cpu, Globe, Mail, Phone,
   Github, Linkedin, Twitter, Instagram, Facebook,
   ArrowLeft, ExternalLink, ChevronRight,
 } from 'lucide-react';
@@ -29,22 +29,6 @@ function MarqueeBelt() {
             {tag}
           </span>
         ))}
-      </div>
-    </div>
-  );
-}
-
-/* ─── 3D Orbiting Rings ────────────────────────────────────── */
-function OrbDecoration() {
-  return (
-    <div className="orbit-scene" aria-hidden="true">
-      <div className="orbit-root">
-        <div className="orbit-ring orbit-ring-1" />
-        <div className="orbit-ring orbit-ring-2" />
-        <div className="orbit-ring orbit-ring-3" />
-        <div className="orbit-core">
-          <Lock className="w-5 h-5 text-sky-400" />
-        </div>
       </div>
     </div>
   );
@@ -299,7 +283,18 @@ export default function AboutPage({ onBack }: AboutPageProps) {
 
                 <div className="flex flex-col lg:flex-row items-start lg:items-center gap-8 relative z-10">
                   <div className="flex-shrink-0">
-                    <OrbDecoration />
+                    <div className="relative">
+                      <div className="w-24 h-24 lg:w-28 lg:h-28 rounded-full overflow-hidden border-2 border-sky-400/30 ring-4 ring-sky-400/8 bg-slate-800/60">
+                        <img
+                          src="/panger-lkr.png"
+                          alt="Panger Lkr"
+                          className="w-full h-full object-cover"
+                        />
+                      </div>
+                      <div className="absolute -bottom-1 -right-1 w-5 h-5 rounded-full bg-emerald-400 border-2 border-[#030d1a] flex items-center justify-center">
+                        <div className="w-2 h-2 rounded-full bg-emerald-300 animate-pulse" />
+                      </div>
+                    </div>
                   </div>
 
                   <div className="flex-1">
@@ -441,8 +436,10 @@ export default function AboutPage({ onBack }: AboutPageProps) {
         {/* Bottom strip */}
         <div className="border-t border-white/5">
           <div className="max-w-5xl mx-auto px-4 py-5 flex flex-col sm:flex-row items-center justify-between gap-3">
-            <div className="flex items-center gap-2">
-              <div className="w-1.5 h-1.5 rounded-full bg-sky-400 animate-pulse" />
+            <div className="flex items-center gap-2.5">
+              <div className="w-6 h-6 rounded-full overflow-hidden border border-sky-400/20 bg-slate-800/80 flex-shrink-0">
+                <img src="/panger-lkr.png" alt="Panger Lkr" className="w-full h-full object-cover" />
+              </div>
               <span className="text-slate-500 text-xs">
                 Built &amp; maintained by{' '}
                 <a href="https://pangerlkr.link" target="_blank" rel="noopener noreferrer" className="text-sky-400/80 hover:text-sky-400 transition-colors">

@@ -40,8 +40,10 @@ export default function Footer({ onAbout }: FooterProps) {
 
       <div className="border-t border-white/5">
         <div className="max-w-5xl mx-auto px-4 py-6 flex flex-col sm:flex-row items-center justify-between gap-4">
-          <div className="flex items-center gap-2">
-            <div className="w-2 h-2 rounded-full bg-sky-400 animate-pulse" />
+          <div className="flex items-center gap-2.5">
+            <div className="w-6 h-6 rounded-full overflow-hidden border border-sky-400/20 bg-slate-800/80 flex-shrink-0">
+              <img src="/panger-lkr.png" alt="Panger Lkr" className="w-full h-full object-cover" />
+            </div>
             <span className="text-slate-500 text-xs">
               Built &amp; maintained by{' '}
               <a
