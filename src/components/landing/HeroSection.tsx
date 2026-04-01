@@ -1,5 +1,4 @@
 import React, { useEffect, useRef, useState } from 'react';
-import { Shield } from 'lucide-react';
 
 export default function HeroSection() {
   const shieldRef = useRef<HTMLDivElement>(null);
@@ -46,13 +45,10 @@ export default function HeroSection() {
             }}
           >
             <div className="relative w-32 h-32 mx-auto">
-              <div className="absolute inset-0 rounded-3xl bg-gradient-to-br from-sky-500/20 to-emerald-500/20 border border-sky-400/30 backdrop-blur-sm animate-pulse-slow" />
-              <div className="absolute inset-2 rounded-2xl bg-gradient-to-br from-sky-500/10 to-emerald-500/10 border border-sky-400/20" />
-              <div className="absolute inset-0 flex items-center justify-center">
-                <Shield className="w-16 h-16 text-sky-400" strokeWidth={1.5} />
-              </div>
               <div className="absolute -inset-4 rounded-full border border-sky-400/10 animate-spin-very-slow" />
-              <div className="absolute -inset-8 rounded-full border border-emerald-400/5 animate-spin-very-slow-reverse" />
+              <div className="w-32 h-32 rounded-full overflow-hidden border-2 border-sky-400/30 ring-4 ring-sky-400/10 bg-slate-800/60 animate-pulse-slow">
+                <img src="/panger-lkr.png" alt="Panger Lkr" className="w-full h-full object-cover" />
+              </div>
               <div className="absolute top-0 right-0 w-3 h-3 rounded-full bg-emerald-400 animate-ping-slow" />
               <div className="absolute bottom-2 left-0 w-2 h-2 rounded-full bg-sky-400 animate-ping-slow delay-500" />
             </div>
