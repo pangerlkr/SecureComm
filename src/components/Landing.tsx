@@ -7,6 +7,7 @@ import FeaturesSection from './landing/FeaturesSection';
 import StatsSection from './landing/StatsSection';
 import UseCasesSection from './landing/UseCasesSection';
 import ShowcaseSlideshow from './landing/ShowcaseSlideshow';
+import ForkSection from './landing/ForkSection';
 import Footer from './landing/Footer';
 
 interface LandingProps {
@@ -60,6 +61,10 @@ export default function Landing({ onCreateRoom, onJoinRoom }: LandingProps) {
         <Divider />
 
         <FeaturesSection />
+
+        <Divider />
+
+        <ForkSection />
 
         <Footer />
       </div>
