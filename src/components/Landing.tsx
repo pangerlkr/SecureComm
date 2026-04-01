@@ -1,5 +1,5 @@
 import React from 'react';
-import { GitFork } from 'lucide-react';
+import { GitFork, User } from 'lucide-react';
 import ParticleField from './landing/ParticleField';
 import HeroSection from './landing/HeroSection';
 import ActionSection from './landing/ActionSection';
@@ -14,6 +14,7 @@ interface LandingProps {
   onCreateRoom: () => void;
   onJoinRoom: (roomId: string) => void;
   onFork: () => void;
+  onAbout: () => void;
 }
 
 function Divider() {
@@ -24,7 +25,7 @@ function Divider() {
   );
 }
 
-export default function Landing({ onCreateRoom, onJoinRoom, onFork }: LandingProps) {
+export default function Landing({ onCreateRoom, onJoinRoom, onFork, onAbout }: LandingProps) {
   return (
     <div className="min-h-screen bg-[#030d1a] text-white overflow-x-hidden">
       <ParticleField />
@@ -35,7 +36,14 @@ export default function Landing({ onCreateRoom, onJoinRoom, onFork }: LandingPro
       </div>
 
       <div className="relative z-10">
-        <nav className="flex items-center justify-end max-w-5xl mx-auto px-4 py-5">
+        <nav className="flex items-center justify-end gap-2 max-w-5xl mx-auto px-4 py-5">
+          <button
+            onClick={onAbout}
+            className="flex items-center gap-2 px-4 py-2 rounded-xl bg-white/5 hover:bg-white/10 border border-white/10 hover:border-sky-400/30 text-slate-400 hover:text-sky-400 text-sm font-medium transition-all duration-200"
+          >
+            <User className="w-4 h-4" />
+            About
+          </button>
           <button
             onClick={onFork}
             className="flex items-center gap-2 px-4 py-2 rounded-xl bg-white/5 hover:bg-white/10 border border-white/10 hover:border-emerald-400/30 text-slate-400 hover:text-emerald-400 text-sm font-medium transition-all duration-200"
@@ -72,7 +80,7 @@ export default function Landing({ onCreateRoom, onJoinRoom, onFork }: LandingPro
 
         <FeaturesSection />
 
-        <Footer />
+        <Footer onAbout={onAbout} />
       </div>
     </div>
   );

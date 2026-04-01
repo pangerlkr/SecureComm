@@ -2,6 +2,16 @@ import React, { useState, useEffect } from 'react';
 import Landing from './components/Landing';
 import ChatRoom from './components/ChatRoom';
 import ForkPage from './components/ForkPage';
+import AboutPage from './components/AboutPage';
+
+type Page = 'landing' | 'fork' | 'about';
+
+function getInitialPage(): Page {
+  const path = window.location.pathname;
+  if (path === '/fork') return 'fork';
+  if (path === '/about') return 'about';
+  return 'landing';
+}
 
 function App() {
   const [currentRoom, setCurrentRoom] = useState<string | null>(null);
@@ -9,23 +19,21 @@ function App() {
   const [isJoiningFromLink, setIsJoiningFromLink] = useState(false);
   const [isHost, setIsHost] = useState(false);
   const [hostSessionId, setHostSessionId] = useState('');
-  const [isForkPage, setIsForkPage] = useState(window.location.pathname === '/fork');
+  const [page, setPage] = useState<Page>(getInitialPage);
 
   useEffect(() => {
     const checkUrlParams = () => {
-      if (window.location.pathname === '/fork') {
-        setIsForkPage(true);
-        return;
-      }
-      setIsForkPage(false);
+      const path = window.location.pathname;
+      if (path === '/fork') { setPage('fork'); return; }
+      if (path === '/about') { setPage('about'); return; }
+      setPage('landing');
+
       const urlParams = new URLSearchParams(window.location.search);
       const roomId = urlParams.get('room');
-
       if (roomId && roomId.trim()) {
         setIsJoiningFromLink(true);
         setIsHost(false);
         setHostSessionId('');
-
         setTimeout(() => {
           setCurrentRoom(roomId.trim().toUpperCase());
           setIsJoiningFromLink(false);
@@ -40,14 +48,13 @@ function App() {
 
   useEffect(() => {
     const handlePopState = () => {
-      if (window.location.pathname === '/fork') {
-        setIsForkPage(true);
-        return;
-      }
-      setIsForkPage(false);
+      const path = window.location.pathname;
+      if (path === '/fork') { setPage('fork'); return; }
+      if (path === '/about') { setPage('about'); return; }
+      setPage('landing');
+
       const urlParams = new URLSearchParams(window.location.search);
       const roomId = urlParams.get('room');
-
       if (roomId && roomId.trim()) {
         setCurrentRoom(roomId.trim().toUpperCase());
         setIsHost(false);
@@ -61,13 +68,8 @@ function App() {
     return () => window.removeEventListener('popstate', handlePopState);
   }, []);
 
-  const generateRoomId = (): string => {
-    return Math.random().toString(36).substring(2, 12).toUpperCase();
-  };
-
-  const generateSessionId = (): string => {
-    return Math.random().toString(36).substring(2) + Date.now().toString(36);
-  };
+  const generateRoomId = (): string => Math.random().toString(36).substring(2, 12).toUpperCase();
+  const generateSessionId = (): string => Math.random().toString(36).substring(2) + Date.now().toString(36);
 
   const handleCreateRoom = () => {
     setIsCreatingRoom(true);
@@ -99,14 +101,10 @@ function App() {
     window.history.pushState({}, '', '/');
   };
 
-  const handleNavigateFork = () => {
-    window.history.pushState({}, '', '/fork');
-    setIsForkPage(true);
-  };
-
-  const handleBackFromFork = () => {
-    window.history.pushState({}, '', '/');
-    setIsForkPage(false);
+  const navigate = (to: Page) => {
+    const path = to === 'landing' ? '/' : `/${to}`;
+    window.history.pushState({}, '', path);
+    setPage(to);
   };
 
   if (isJoiningFromLink) {
@@ -138,9 +136,8 @@ function App() {
     );
   }
 
-  if (isForkPage) {
-    return <ForkPage onBack={handleBackFromFork} />;
-  }
+  if (page === 'fork') return <ForkPage onBack={() => navigate('landing')} />;
+  if (page === 'about') return <AboutPage onBack={() => navigate('landing')} />;
 
   if (currentRoom) {
     return (
@@ -153,7 +150,14 @@ function App() {
     );
   }
 
-  return <Landing onCreateRoom={handleCreateRoom} onJoinRoom={handleJoinRoom} onFork={handleNavigateFork} />;
+  return (
+    <Landing
+      onCreateRoom={handleCreateRoom}
+      onJoinRoom={handleJoinRoom}
+      onFork={() => navigate('fork')}
+      onAbout={() => navigate('about')}
+    />
+  );
 }
 
 export default App;
