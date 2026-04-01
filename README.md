@@ -1,5 +1,6 @@
 # SecureComm ChatRoom
 ### A Secure, End-to-End Encrypted Chat Room for Real-Time Communication
+<img width="1073" height="666" alt="Screenshot 2026-04-01 at 9 33 52 AM" src="https://github.com/user-attachments/assets/f35810c4-61b0-4b14-94cc-7b3ae6f758a3" />
 
 SecureComm is a **chat room–style communication platform** that enables users to exchange messages in real time, protected by strong end-to-end encryption.
 
@@ -44,6 +45,11 @@ The distinction lies beneath the surface.
 
 > Messages are encrypted on your device before transmission and decrypted only on the recipient’s device.  
 > The server merely relays encrypted payloads and remains blind to message contents.
+
+<img width="977" height="610" alt="Screenshot 2026-04-01 at 9 36 39 AM" src="https://github.com/user-attachments/assets/e231ba74-1975-4380-9b46-84062eab7190" />
+<img width="1052" height="626" alt="Screenshot 2026-04-01 at 9 34 09 AM" src="https://github.com/user-attachments/assets/c3724779-c6c6-474b-abde-5ff7a0de03fd" />
+<img width="1006" height="570" alt="Screenshot 2026-04-01 at 9 34 14 AM" src="https://github.com/user-attachments/assets/355f8517-4b24-4f76-9416-d2c0013f9ca0" />
+<img width="1079" height="620" alt="Screenshot 2026-04-01 at 9 34 19 AM" src="https://github.com/user-attachments/assets/72ff6922-a225-4b29-888d-d27e1bda8bc3" />
 
 ---
 
@@ -130,6 +136,7 @@ The server knows **that** messages are sent, not **what** they contain.
 ## Installation
 
 SecureComm supports multiple installation methods depending on your use case.
+<img width="1117" height="768" alt="Screenshot 2026-04-01 at 9 33 40 AM" src="https://github.com/user-attachments/assets/ec4a2742-209f-4cdf-a550-dceca1784434" />
 
 ---
 
