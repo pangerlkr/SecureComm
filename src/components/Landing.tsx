@@ -1,4 +1,5 @@
 import React from 'react';
+import { GitFork } from 'lucide-react';
 import ParticleField from './landing/ParticleField';
 import HeroSection from './landing/HeroSection';
 import ActionSection from './landing/ActionSection';
@@ -7,12 +8,12 @@ import FeaturesSection from './landing/FeaturesSection';
 import StatsSection from './landing/StatsSection';
 import UseCasesSection from './landing/UseCasesSection';
 import ShowcaseSlideshow from './landing/ShowcaseSlideshow';
-import ForkSection from './landing/ForkSection';
 import Footer from './landing/Footer';
 
 interface LandingProps {
   onCreateRoom: () => void;
   onJoinRoom: (roomId: string) => void;
+  onFork: () => void;
 }
 
 function Divider() {
@@ -23,7 +24,7 @@ function Divider() {
   );
 }
 
-export default function Landing({ onCreateRoom, onJoinRoom }: LandingProps) {
+export default function Landing({ onCreateRoom, onJoinRoom, onFork }: LandingProps) {
   return (
     <div className="min-h-screen bg-[#030d1a] text-white overflow-x-hidden">
       <ParticleField />
@@ -34,6 +35,15 @@ export default function Landing({ onCreateRoom, onJoinRoom }: LandingProps) {
       </div>
 
       <div className="relative z-10">
+        <nav className="flex items-center justify-end max-w-5xl mx-auto px-4 py-5">
+          <button
+            onClick={onFork}
+            className="flex items-center gap-2 px-4 py-2 rounded-xl bg-white/5 hover:bg-white/10 border border-white/10 hover:border-emerald-400/30 text-slate-400 hover:text-emerald-400 text-sm font-medium transition-all duration-200"
+          >
+            <GitFork className="w-4 h-4" />
+            Fork &amp; Self-Host
+          </button>
+        </nav>
         <HeroSection />
 
         <div className="w-full max-w-5xl mx-auto px-4">
@@ -61,10 +71,6 @@ export default function Landing({ onCreateRoom, onJoinRoom }: LandingProps) {
         <Divider />
 
         <FeaturesSection />
-
-        <Divider />
-
-        <ForkSection />
 
         <Footer />
       </div>

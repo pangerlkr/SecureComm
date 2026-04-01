@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import Landing from './components/Landing';
 import ChatRoom from './components/ChatRoom';
+import ForkPage from './components/ForkPage';
 
 function App() {
   const [currentRoom, setCurrentRoom] = useState<string | null>(null);
@@ -8,9 +9,15 @@ function App() {
   const [isJoiningFromLink, setIsJoiningFromLink] = useState(false);
   const [isHost, setIsHost] = useState(false);
   const [hostSessionId, setHostSessionId] = useState('');
+  const [isForkPage, setIsForkPage] = useState(window.location.pathname === '/fork');
 
   useEffect(() => {
     const checkUrlParams = () => {
+      if (window.location.pathname === '/fork') {
+        setIsForkPage(true);
+        return;
+      }
+      setIsForkPage(false);
       const urlParams = new URLSearchParams(window.location.search);
       const roomId = urlParams.get('room');
 
@@ -33,6 +40,11 @@ function App() {
 
   useEffect(() => {
     const handlePopState = () => {
+      if (window.location.pathname === '/fork') {
+        setIsForkPage(true);
+        return;
+      }
+      setIsForkPage(false);
       const urlParams = new URLSearchParams(window.location.search);
       const roomId = urlParams.get('room');
 
@@ -84,7 +96,17 @@ function App() {
     setCurrentRoom(null);
     setIsHost(false);
     setHostSessionId('');
-    window.history.pushState({}, '', window.location.pathname);
+    window.history.pushState({}, '', '/');
+  };
+
+  const handleNavigateFork = () => {
+    window.history.pushState({}, '', '/fork');
+    setIsForkPage(true);
+  };
+
+  const handleBackFromFork = () => {
+    window.history.pushState({}, '', '/');
+    setIsForkPage(false);
   };
 
   if (isJoiningFromLink) {
@@ -116,6 +138,10 @@ function App() {
     );
   }
 
+  if (isForkPage) {
+    return <ForkPage onBack={handleBackFromFork} />;
+  }
+
   if (currentRoom) {
     return (
       <ChatRoom
@@ -127,7 +153,7 @@ function App() {
     );
   }
 
-  return <Landing onCreateRoom={handleCreateRoom} onJoinRoom={handleJoinRoom} />;
+  return <Landing onCreateRoom={handleCreateRoom} onJoinRoom={handleJoinRoom} onFork={handleNavigateFork} />;
 }
 
 export default App;
